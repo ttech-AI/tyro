@@ -178,7 +178,10 @@ export function LoginPage() {
     setPhase("connecting")
     setTimeout(() => setPhase("dissolving"), 1500)
     setTimeout(() => {
-      window.localStorage.setItem("tyro-logged-in", "1")
+      // Session-scoped: login is required every fresh browser session
+      window.sessionStorage.setItem("tyro-logged-in", "1")
+      // Clean up legacy localStorage flag from earlier prototype
+      window.localStorage.removeItem("tyro-logged-in")
       navigate("/dashboard")
     }, 2300)
   }

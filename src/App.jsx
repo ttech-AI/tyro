@@ -13,9 +13,11 @@ import { LoginPage } from "@/components/auth/LoginPage"
 
 const LOGGED_IN_KEY = "tyro-logged-in"
 
+// Auth flag lives in sessionStorage so login is required every browser session.
+// Theme / locale / mute / login-defaults stay in localStorage and persist long-term.
 function readLoggedIn() {
   if (typeof window === "undefined") return false
-  return window.localStorage.getItem(LOGGED_IN_KEY) === "1"
+  return window.sessionStorage.getItem(LOGGED_IN_KEY) === "1"
 }
 
 const PATH_TO_ID = {
