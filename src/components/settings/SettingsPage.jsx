@@ -1,0 +1,302 @@
+import { useState } from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  Add01Icon,
+  Edit02Icon,
+  Delete02Icon,
+  Refresh01Icon,
+  Robot01Icon,
+  AiBrain02Icon,
+  Office365Icon,
+} from "@hugeicons/core-free-icons"
+import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { IconOrLogo } from "@/components/common/IconOrLogo"
+import { EntityForm } from "./EntityForm"
+import { GeneralTab } from "./GeneralTab"
+import { useConfig } from "@/hooks/useConfig"
+import { useLocale } from "@/hooks/useLocale"
+import { cn } from "@/lib/utils"
+
+function EntityRow({ item, kind, onEdit, onDelete }) {
+  const tone =
+    kind === "agent"
+      ? "bg-gradient-to-br from-brand-from via-brand-via to-brand-to"
+      : kind === "businessApp"
+        ? "bg-brand-deep"
+        : ""
+  const style =
+    kind === "aiApp"
+      ? { background: "color-mix(in oklab, var(--brand-via) 60%, var(--brand-deep) 40%)" }
+      : undefined
+  return (
+    <div className="group flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition hover:border-brand/40 hover:shadow-sm">
+      <div
+        className={cn(
+          "grid size-11 shrink-0 place-items-center overflow-hidden rounded-xl text-white shadow-sm",
+          tone,
+        )}
+        style={style}
+      >
+        <IconOrLogo
+          iconName={item.iconName}
+          logo={item.logo}
+          className="size-5"
+        />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <h4 className="truncate text-sm font-semibold">{item.name}</h4>
+          {item.logo && (
+            <Badge variant="outline" className="h-5 border-brand/40 px-1.5 text-[10px] text-brand-deep">
+              LOGO
+            </Badge>
+          )}
+        </div>
+        <p className="truncate text-xs text-muted-foreground">
+          {item.description || (kind === "agent" ? item.agentId || "—" : item.url || "—")}
+        </p>
+      </div>
+      <div className="flex shrink-0 gap-1 opacity-0 transition group-hover:opacity-100">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-8"
+          onClick={() => onEdit(item)}
+        >
+          <HugeiconsIcon icon={Edit02Icon} className="size-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-8 text-muted-foreground hover:text-destructive"
+          onClick={() => onDelete(item)}
+        >
+          <HugeiconsIcon icon={Delete02Icon} className="size-4" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function EntitySection({ kind, items, headerIcon, onAdd, onEdit, onDelete, onReset, labels }) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-end justify-between">
+        <div className="flex items-start gap-3">
+          <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-deep">
+            <HugeiconsIcon icon={headerIcon} className="size-4" strokeWidth={1.6} />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold">{labels.title}</h3>
+            <p className="text-xs text-muted-foreground">{labels.subtitle}</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5"
+            onClick={onReset}
+          >
+            <HugeiconsIcon icon={Refresh01Icon} className="size-3.5" />
+            {labels.reset}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 gap-1.5"
+            onClick={onAdd}
+          >
+            <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
+            {labels.add}
+          </Button>
+        </div>
+      </div>
+      {items.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+          {labels.empty}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          {items.map((item) => (
+            <EntityRow
+              key={item.id}
+              item={item}
+              kind={kind}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function SettingsPage() {
+  const { t } = useLocale()
+  const config = useConfig()
+  const [tab, setTab] = useState("general")
+  const [editing, setEditing] = useState(null) // { kind, value } | null
+  const [deletePrompt, setDeletePrompt] = useState(null) // { kind, item } | null
+
+  function openNew(kind) {
+    setEditing({ kind, value: null })
+  }
+  function openEdit(kind, value) {
+    setEditing({ kind, value })
+  }
+  function closeForm() {
+    setEditing(null)
+  }
+
+  function handleSave(saved) {
+    if (!editing) return
+    if (editing.kind === "agent") config.upsertAgent(saved)
+    if (editing.kind === "aiApp") config.upsertAiApp(saved)
+    if (editing.kind === "businessApp") config.upsertBusinessApp(saved)
+    toast.success(t("settings.toast.saved").replace("{name}", saved.name))
+    setEditing(null)
+  }
+
+  function confirmDelete() {
+    if (!deletePrompt) return
+    const { kind, item } = deletePrompt
+    if (kind === "agent") config.removeAgent(item.id)
+    if (kind === "aiApp") config.removeAiApp(item.id)
+    if (kind === "businessApp") config.removeBusinessApp(item.id)
+    toast.success(t("settings.toast.deleted").replace("{name}", item.name))
+    setDeletePrompt(null)
+  }
+
+  function handleReset(collection, labelKey) {
+    config.reset(collection)
+    toast.success(t("settings.toast.reset").replace("{name}", t(labelKey)))
+  }
+
+  return (
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 font-sans lg:px-6 lg:py-8" style={{ fontFamily: '"Inter Variable", "Inter", system-ui, sans-serif' }}>
+      <header className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          {t("settings.title")}
+        </h1>
+        <p className="text-sm text-muted-foreground">{t("settings.subtitle")}</p>
+      </header>
+
+      <Tabs value={tab} onValueChange={setTab} className="flex-1">
+        <TabsList className="bg-muted/60">
+          <TabsTrigger value="general">{t("settings.tabs.general")}</TabsTrigger>
+          <TabsTrigger value="agents">{t("settings.tabs.agents")}</TabsTrigger>
+          <TabsTrigger value="aiApps">{t("settings.tabs.aiApps")}</TabsTrigger>
+          <TabsTrigger value="businessApps">{t("settings.tabs.businessApps")}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="general" className="mt-6">
+          <GeneralTab />
+        </TabsContent>
+
+        <TabsContent value="agents" className="mt-6">
+          <EntitySection
+            kind="agent"
+            headerIcon={Robot01Icon}
+            items={config.agents}
+            onAdd={() => openNew("agent")}
+            onEdit={(item) => openEdit("agent", item)}
+            onDelete={(item) => setDeletePrompt({ kind: "agent", item })}
+            onReset={() => handleReset("agents", "settings.tabs.agents")}
+            labels={{
+              title: t("settings.agent.sectionTitle"),
+              subtitle: t("settings.agent.sectionSubtitle"),
+              add: t("settings.agent.addAction"),
+              reset: t("settings.action.reset"),
+              empty: t("settings.agent.empty"),
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="aiApps" className="mt-6">
+          <EntitySection
+            kind="aiApp"
+            headerIcon={AiBrain02Icon}
+            items={config.aiApps}
+            onAdd={() => openNew("aiApp")}
+            onEdit={(item) => openEdit("aiApp", item)}
+            onDelete={(item) => setDeletePrompt({ kind: "aiApp", item })}
+            onReset={() => handleReset("aiApps", "settings.tabs.aiApps")}
+            labels={{
+              title: t("settings.aiApp.sectionTitle"),
+              subtitle: t("settings.aiApp.sectionSubtitle"),
+              add: t("settings.aiApp.addAction"),
+              reset: t("settings.action.reset"),
+              empty: t("settings.aiApp.empty"),
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="businessApps" className="mt-6">
+          <EntitySection
+            kind="businessApp"
+            headerIcon={Office365Icon}
+            items={config.businessApps}
+            onAdd={() => openNew("businessApp")}
+            onEdit={(item) => openEdit("businessApp", item)}
+            onDelete={(item) => setDeletePrompt({ kind: "businessApp", item })}
+            onReset={() => handleReset("businessApps", "settings.tabs.businessApps")}
+            labels={{
+              title: t("settings.businessApp.sectionTitle"),
+              subtitle: t("settings.businessApp.sectionSubtitle"),
+              add: t("settings.businessApp.addAction"),
+              reset: t("settings.action.reset"),
+              empty: t("settings.businessApp.empty"),
+            }}
+          />
+        </TabsContent>
+      </Tabs>
+
+      <EntityForm
+        kind={editing?.kind}
+        open={Boolean(editing)}
+        initialValue={editing?.value}
+        onClose={closeForm}
+        onSave={handleSave}
+      />
+
+      <Dialog
+        open={Boolean(deletePrompt)}
+        onOpenChange={(v) => !v && setDeletePrompt(null)}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>{t("settings.deletePrompt.title")}</DialogTitle>
+            <DialogDescription>
+              {t("settings.deletePrompt.body").replace(
+                "{name}",
+                deletePrompt?.item?.name ?? "",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletePrompt(null)}>
+              {t("settings.action.cancel")}
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              {t("settings.action.delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
