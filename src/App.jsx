@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation, useNavigate, useSearchParams } from "react-router-dom"
+import { Routes, Route, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { Toaster } from "@/components/ui/sonner"
 import { DashboardLayout } from "@/components/layout/DashboardLayout"
 import { SectionCards } from "@/components/dashboard/SectionCards"
@@ -10,6 +10,13 @@ import { ChatScreen } from "@/components/chat/ChatScreen"
 import { SettingsPage } from "@/components/settings/SettingsPage"
 import { HelpPage } from "@/components/help/HelpPage"
 import { LoginPage } from "@/components/auth/LoginPage"
+
+const LOGGED_IN_KEY = "tyro-logged-in"
+
+function readLoggedIn() {
+  if (typeof window === "undefined") return false
+  return window.localStorage.getItem(LOGGED_IN_KEY) === "1"
+}
 
 const PATH_TO_ID = {
   "/": "dashboard",
@@ -82,6 +89,11 @@ function App() {
         <Toaster richColors position="bottom-center" />
       </>
     )
+  }
+
+  // Auth gate — if not logged in, redirect to /login
+  if (!readLoggedIn()) {
+    return <Navigate to="/login" replace />
   }
 
   return (

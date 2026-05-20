@@ -177,7 +177,10 @@ export function LoginPage() {
     if (activityTimer.current) clearTimeout(activityTimer.current)
     setPhase("connecting")
     setTimeout(() => setPhase("dissolving"), 1500)
-    setTimeout(() => navigate("/"), 2300)
+    setTimeout(() => {
+      window.localStorage.setItem("tyro-logged-in", "1")
+      navigate("/")
+    }, 2300)
   }
 
   const orbSize = isMobile ? 170 : 280
