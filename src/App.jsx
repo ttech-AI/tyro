@@ -19,7 +19,7 @@ function readLoggedIn() {
 }
 
 const PATH_TO_ID = {
-  "/": "dashboard",
+  "/dashboard": "dashboard",
   "/chat": "chat",
   "/analytics": "analytics",
   "/settings": "settings",
@@ -27,7 +27,7 @@ const PATH_TO_ID = {
 }
 
 const ID_TO_PATH = {
-  dashboard: "/",
+  dashboard: "/dashboard",
   chat: "/chat",
   analytics: "/analytics",
   settings: "/settings",
@@ -69,7 +69,7 @@ function App() {
   const activeId = PATH_TO_ID[location.pathname] ?? "dashboard"
 
   function handleActiveIdChange(id) {
-    const path = ID_TO_PATH[id] ?? "/"
+    const path = ID_TO_PATH[id] ?? "/dashboard"
     navigate(path)
   }
 
@@ -104,18 +104,16 @@ function App() {
         onNewChat={handleNewChat}
       >
         <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route
-            path="/"
+            path="/dashboard"
             element={<AppLauncher onOpenChat={handleOpenChatWithAgent} onNewChat={handleNewChat} />}
           />
           <Route path="/chat" element={<ChatRoute />} />
           <Route path="/analytics" element={<AnalyticsContent />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/help" element={<HelpPage />} />
-          <Route
-            path="*"
-            element={<AppLauncher onOpenChat={handleOpenChatWithAgent} onNewChat={handleNewChat} />}
-          />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </DashboardLayout>
       <Toaster richColors position="bottom-center" />

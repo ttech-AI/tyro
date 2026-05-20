@@ -179,7 +179,7 @@ export function LoginPage() {
     setTimeout(() => setPhase("dissolving"), 1500)
     setTimeout(() => {
       window.localStorage.setItem("tyro-logged-in", "1")
-      navigate("/")
+      navigate("/dashboard")
     }, 2300)
   }
 
