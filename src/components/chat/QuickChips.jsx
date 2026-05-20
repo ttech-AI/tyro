@@ -1,7 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   StickyNote01Icon,
-  SourceCodeIcon,
+  BubbleChatTranslateIcon,
   PaintBoardIcon,
   AiSearch02Icon,
 } from "@hugeicons/core-free-icons"
@@ -10,7 +10,7 @@ import { useLocale } from "@/hooks/useLocale"
 
 const CHIPS = [
   { id: "summary", labelKey: "chat.chips.summary", prefixKey: "chat.chips.prefix.summary", icon: StickyNote01Icon },
-  { id: "code", labelKey: "chat.chips.code", prefixKey: "chat.chips.prefix.code", icon: SourceCodeIcon },
+  { id: "translate", labelKey: "chat.chips.translate", prefixKey: "chat.chips.prefix.translate", icon: BubbleChatTranslateIcon },
   { id: "design", labelKey: "chat.chips.design", prefixKey: "chat.chips.prefix.design", icon: PaintBoardIcon },
   { id: "research", labelKey: "chat.chips.research", prefixKey: "chat.chips.prefix.research", icon: AiSearch02Icon },
 ]
@@ -27,7 +27,7 @@ export function QuickChips({ onChip }) {
           onClick={() => onChip?.(t(chip.prefixKey))}
           className="h-10 gap-2 rounded-full border-border/70 bg-background px-4 text-sm font-medium text-foreground/80 hover:text-foreground"
         >
-          <HugeiconsIcon icon={chip.icon} className="size-4 text-brand-via" />
+          <HugeiconsIcon icon={chip.icon} className="size-[18px] text-brand-via" strokeWidth={1.6} />
           {t(chip.labelKey)}
         </Button>
       ))}

@@ -17,7 +17,6 @@ import { useTheme } from "@/hooks/useTheme"
 import { usePalette } from "@/hooks/usePalette"
 import { useConfig } from "@/hooks/useConfig"
 import { appMeta, localStorageRegistry } from "@/data/appMeta"
-import { getPalette } from "@/data/palettes"
 import { cn } from "@/lib/utils"
 
 const ENTRY_ICON = {
@@ -46,16 +45,6 @@ export function GeneralTab() {
   const { locale } = useLocale()
   const config = useConfig()
   const [bump, setBump] = useState(0)
-
-  const activePalette = getPalette(palette)
-  const [swatch1, swatch2, swatch3] = activePalette.swatch
-  const logoColors = {
-    gradStart: swatch1,
-    gradEnd: swatch3,
-    fillA: swatch2,
-    fillB: swatch1,
-    fillC: swatch3,
-  }
 
   const summaries = useMemo(
     () => ({
@@ -108,8 +97,8 @@ export function GeneralTab() {
     <div className="space-y-10">
       {/* App identity */}
       <section className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
-        <div className="grid size-24 shrink-0 place-items-center rounded-3xl border border-border bg-white p-3 shadow-[0_4px_24px_-8px_color-mix(in_oklab,var(--brand-via),transparent_70%)]">
-          <TyroLogo size={64} className="size-16" themeColors={logoColors} />
+        <div className="grid size-24 shrink-0 place-items-center">
+          <TyroLogo size={64} className="size-16" />
         </div>
         <div className="flex-1 space-y-1.5">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">

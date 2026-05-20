@@ -22,7 +22,7 @@ export function NavSecondary({ items, activeId, onSelect, ...props }) {
                 {active && (
                   <span
                     aria-hidden="true"
-                    className="absolute -left-2 top-1/2 z-10 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-brand-from via-brand-via to-brand-to shadow-[1px_0_6px_-1px_color-mix(in_oklch,var(--brand-from),transparent_45%)]"
+                    className="absolute -left-2 top-1/2 z-10 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand shadow-[1px_0_6px_-1px_color-mix(in_oklch,var(--brand-text),transparent_45%)]"
                   />
                 )}
                 <SidebarMenuButton

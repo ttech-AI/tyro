@@ -1,5 +1,11 @@
 export const palettes = [
   {
+    id: "fiesta",
+    labelKey: "palette.fiesta",
+    swatch: ["#feda77", "#dd2a7b", "#8134af"],
+    group: "gradient",
+  },
+  {
     id: "ocean-breeze",
     labelKey: "palette.oceanBreeze",
     swatch: ["#38bdf8", "#22d3ee", "#14b8a6"],
@@ -9,12 +15,6 @@ export const palettes = [
     id: "ocean-breeze-v2",
     labelKey: "palette.oceanBreezeV2",
     swatch: ["#0077b6", "#00b4d8", "#48cae4"],
-    group: "gradient",
-  },
-  {
-    id: "fiesta",
-    labelKey: "palette.fiesta",
-    swatch: ["#515bd4", "#dd2a7b", "#feda77"],
     group: "gradient",
   },
   {
@@ -85,7 +85,7 @@ export const palettes = [
   },
 ]
 
-export const DEFAULT_PALETTE = "ocean-breeze"
+export const DEFAULT_PALETTE = "fiesta"
 
 export function getPalette(id) {
   return palettes.find((p) => p.id === id) ?? palettes[0]

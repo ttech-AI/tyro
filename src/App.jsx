@@ -9,6 +9,7 @@ import { AppLauncher } from "@/components/dashboard/AppLauncher"
 import { ChatScreen } from "@/components/chat/ChatScreen"
 import { SettingsPage } from "@/components/settings/SettingsPage"
 import { HelpPage } from "@/components/help/HelpPage"
+import { LoginPage } from "@/components/auth/LoginPage"
 
 const PATH_TO_ID = {
   "/": "dashboard",
@@ -71,6 +72,16 @@ function App() {
 
   function handleOpenChatWithAgent(agentId) {
     navigate(`/chat?agent=${encodeURIComponent(agentId)}&reset=${Date.now()}`)
+  }
+
+  // Login is a standalone layout — no sidebar/header chrome
+  if (location.pathname === "/login") {
+    return (
+      <>
+        <LoginPage />
+        <Toaster richColors position="bottom-center" />
+      </>
+    )
   }
 
   return (

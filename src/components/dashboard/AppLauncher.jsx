@@ -1,4 +1,5 @@
-import { motion } from "motion/react"
+import { useEffect } from "react"
+import { motion, useMotionValue, useSpring, useTransform } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import { useLocale } from "@/hooks/useLocale"
@@ -16,11 +17,48 @@ function greetingKey(hour) {
   return "chat.greeting.night"
 }
 
+// Word-by-word reveal: smooth blur+rise stagger
+const wordVariants = {
+  hidden: { opacity: 0, y: 18, filter: "blur(8px)" },
+  visible: {
+    opacity: 1,
+    y: 0,
+    filter: "blur(0px)",
+    transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+  },
+}
+
+const lineVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08, delayChildren: 0.35 } },
+}
+
 function HeroSection({ onNewChat }) {
   const { t } = useLocale()
   const isMobile = useIsMobile()
   const greetHour = new Date().getHours()
   const firstName = (currentUser.name || "").split(" ")[0]
+  const greetingText = t(greetingKey(greetHour))
+  const greetingWords = greetingText.split(" ")
+
+  // Mouse parallax — orb subtly follows cursor (desktop only)
+  const mouseX = useMotionValue(0)
+  const mouseY = useMotionValue(0)
+  const springConfig = { stiffness: 70, damping: 18, mass: 0.6 }
+  const orbX = useSpring(useTransform(mouseX, [-1, 1], [-12, 12]), springConfig)
+  const orbY = useSpring(useTransform(mouseY, [-1, 1], [-10, 10]), springConfig)
+
+  useEffect(() => {
+    if (isMobile) return
+    function handle(e) {
+      const x = (e.clientX / window.innerWidth - 0.5) * 2
+      const y = (e.clientY / window.innerHeight - 0.5) * 2
+      mouseX.set(x)
+      mouseY.set(y)
+    }
+    window.addEventListener("mousemove", handle, { passive: true })
+    return () => window.removeEventListener("mousemove", handle)
+  }, [isMobile, mouseX, mouseY])
 
   return (
     <section className="relative">
@@ -28,41 +66,57 @@ function HeroSection({ onNewChat }) {
         {/* LEFT — greeting + CTA */}
         <div className="space-y-5">
           <motion.h1
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            initial="hidden"
+            animate="visible"
+            variants={lineVariants}
             className="text-3xl font-semibold tracking-tight leading-[1.1] sm:text-4xl md:text-[44px]"
           >
-            {t(greetingKey(greetHour))},{" "}
-            <span className="bg-gradient-to-r from-brand-from via-brand-via to-brand-to bg-clip-text text-transparent">
+            {greetingWords.map((word, i) => (
+              <motion.span key={`g-${i}`} variants={wordVariants} className="inline-block">
+                {word}
+                {i < greetingWords.length - 1 && " "}
+              </motion.span>
+            ))}
+            <motion.span variants={wordVariants} className="inline-block">
+              ,&nbsp;
+            </motion.span>
+            <motion.span
+              variants={wordVariants}
+              className="inline-block bg-gradient-to-r from-brand-from via-brand-via to-brand-to bg-clip-text text-transparent"
+            >
               {firstName}
-            </span>
-            .
+            </motion.span>
+            <motion.span variants={wordVariants} className="inline-block">
+              .
+            </motion.span>
           </motion.h1>
 
           <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+            initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            transition={{ duration: 0.6, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
             className="max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg"
           >
             {t("dashboard.hero.subtitle")}
           </motion.p>
 
           <motion.div
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.55, delay: 0.95, ease: [0.22, 1, 0.36, 1] }}
             className="flex flex-wrap items-center gap-3 pt-1"
           >
-            <button
+            <motion.button
               type="button"
               onClick={onNewChat}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 400, damping: 22 }}
               className={cn(
                 "group inline-flex items-center gap-2 rounded-full",
                 "bg-gradient-to-r from-brand-from via-brand-via to-brand-to",
                 "px-5 py-2.5 text-sm font-semibold text-white shadow-sm",
-                "transition-all duration-200 hover:shadow-lg hover:brightness-110",
+                "transition-shadow duration-200 hover:shadow-lg hover:brightness-110",
               )}
             >
               {t("dashboard.hero.cta")}
@@ -71,7 +125,7 @@ function HeroSection({ onNewChat }) {
                 className="size-4 transition-transform group-hover:translate-x-0.5"
                 strokeWidth={2}
               />
-            </button>
+            </motion.button>
             <a
               href="#apps"
               className="text-sm font-medium text-muted-foreground transition hover:text-foreground"
@@ -81,17 +135,32 @@ function HeroSection({ onNewChat }) {
           </motion.div>
         </div>
 
-        {/* RIGHT — orb */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.92 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.7, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-          className="flex justify-center md:justify-end"
-        >
-          <div className="cursor-pointer" onClick={onNewChat} role="button" tabIndex={0}>
-            <PastelVoiceOrb state="idle" size={isMobile ? 130 : 180} />
-          </div>
-        </motion.div>
+        {/* RIGHT — orb with parallax + entrance breath */}
+        <div className="flex justify-center md:justify-end">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.65, filter: "blur(12px)" }}
+            animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+            transition={{
+              duration: 1.1,
+              delay: 0.1,
+              ease: [0.22, 1, 0.36, 1],
+              scale: { type: "spring", stiffness: 110, damping: 16, mass: 0.9 },
+            }}
+            style={{ x: orbX, y: orbY }}
+          >
+            <motion.div
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 300, damping: 18 }}
+              onClick={onNewChat}
+              role="button"
+              tabIndex={0}
+              className="cursor-pointer"
+            >
+              <PastelVoiceOrb state="idle" size={isMobile ? 130 : 180} />
+            </motion.div>
+          </motion.div>
+        </div>
       </div>
     </section>
   )

@@ -158,9 +158,8 @@ function EntitySection({ kind, items, headerIcon, onAdd, onEdit, onDelete, onRes
             type="button"
             size="sm"
             className={cn(
-              "h-9 gap-1.5 border-0 text-white shadow-sm",
-              "bg-gradient-to-r from-brand-from via-brand-via to-brand-to",
-              "hover:brightness-110 hover:shadow-md hover:text-white",
+              "h-9 gap-1.5 border-0 bg-brand text-white shadow-sm",
+              "hover:bg-brand hover:brightness-110 hover:shadow-md hover:text-white",
             )}
             onClick={onAdd}
           >
@@ -258,11 +257,11 @@ export function SettingsPage() {
               key={tabDef.value}
               value={tabDef.value}
               className={cn(
-                "relative h-11 gap-2 rounded-none border-0 bg-transparent px-4 text-sm font-medium",
-                "text-muted-foreground transition data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
+                "relative h-12 gap-2 rounded-none border-0 bg-transparent px-4 pb-3 pt-2 text-sm font-medium",
+                "text-muted-foreground/70 transition data-[state=active]:bg-transparent data-[state=active]:text-brand-deep data-[state=active]:font-semibold data-[state=active]:shadow-none",
                 "hover:text-foreground",
-                "data-[state=active]:after:absolute data-[state=active]:after:inset-x-3 data-[state=active]:after:-bottom-px data-[state=active]:after:h-[2px]",
-                "data-[state=active]:after:rounded-full data-[state=active]:after:bg-gradient-to-r data-[state=active]:after:from-brand-from data-[state=active]:after:via-brand-via data-[state=active]:after:to-brand-to",
+                "data-[state=active]:after:absolute data-[state=active]:after:inset-x-2 data-[state=active]:after:-bottom-px data-[state=active]:after:h-[3px]",
+                "data-[state=active]:after:rounded-t-full data-[state=active]:after:bg-brand",
                 "data-[state=active]:[&_svg]:text-brand",
               )}
             >
