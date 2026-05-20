@@ -25,7 +25,7 @@ import { useLocale } from "@/hooks/useLocale"
 const navMain = [
   { id: "dashboard", labelKey: "nav.dashboard", icon: DashboardCircleIcon, ready: true },
   { id: "chat", labelKey: "nav.chat", icon: AiChat02Icon, ready: true },
-  { id: "analytics", labelKey: "nav.analytics", icon: Analytics01Icon, ready: true },
+  { id: "analytics", labelKey: "nav.analytics", icon: Analytics01Icon, ready: true, showConstructionToast: true },
 ]
 
 function showComingSoon(label, t) {
@@ -35,7 +35,7 @@ function showComingSoon(label, t) {
         initial={{ opacity: 0, y: 56, scale: 0.88 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 360, damping: 22, mass: 0.9 }}
-        className="pointer-events-auto flex w-[440px] items-start gap-4 rounded-2xl border border-border bg-card p-5 shadow-2xl ring-1 ring-brand/15"
+        className="pointer-events-auto flex w-[min(440px,calc(100vw-2rem))] items-start gap-3 rounded-2xl border border-border bg-card p-4 shadow-2xl ring-1 ring-brand/15 sm:gap-4 sm:p-5"
       >
         <motion.div
           initial={{ rotate: -25, scale: 0.6 }}
@@ -74,6 +74,7 @@ export function AppSidebar({ activeId, onSelectActiveId, onNewChat, ...props }) 
   const handleSelect = (item) => {
     if (item.ready) {
       onSelectActiveId?.(item.id)
+      if (item.showConstructionToast) showComingSoon(t(item.labelKey), t)
       return
     }
     showComingSoon(t(item.labelKey), t)
@@ -81,7 +82,7 @@ export function AppSidebar({ activeId, onSelectActiveId, onNewChat, ...props }) 
 
   const navSecondary = [
     { id: "settings", labelKey: "nav.settings", icon: Settings02Icon, ready: true },
-    { id: "help", labelKey: "nav.help", icon: HelpCircleIcon },
+    { id: "help", labelKey: "nav.help", icon: HelpCircleIcon, ready: true },
   ]
 
   return (

@@ -4,11 +4,12 @@ import { cn } from "@/lib/utils"
 
 export function IconOrLogo({ iconName, logo, className, size, strokeWidth = 1.6, alt = "" }) {
   if (logo) {
+    // Logo fills the parent container fully — ignore the size className that's intended for icon sizing
     return (
       <img
         src={logo}
         alt={alt}
-        className={cn("size-full object-cover", className)}
+        className="size-full object-cover"
         draggable={false}
       />
     )

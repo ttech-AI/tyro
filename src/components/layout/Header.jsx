@@ -33,8 +33,17 @@ function PremiumSidebarTrigger() {
   )
 }
 
-export function Header({ onOpenSearch }) {
+const PAGE_LABEL_KEY = {
+  dashboard: "nav.dashboard",
+  chat: "nav.chat",
+  analytics: "nav.analytics",
+  settings: "nav.settings",
+  help: "nav.help",
+}
+
+export function Header({ activeId = "dashboard", onOpenSearch }) {
   const { t } = useLocale()
+  const pageLabelKey = PAGE_LABEL_KEY[activeId] ?? "nav.dashboard"
 
   return (
     <header className="group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 flex h-14 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -52,7 +61,7 @@ export function Header({ onOpenSearch }) {
             </BreadcrumbItem>
             <BreadcrumbSeparator className="hidden md:block [&>svg]:size-3.5 text-muted-foreground/60" />
             <BreadcrumbItem>
-              <BreadcrumbPage className="font-medium">{t("nav.dashboard")}</BreadcrumbPage>
+              <BreadcrumbPage className="font-medium">{t(pageLabelKey)}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -63,14 +72,16 @@ export function Header({ onOpenSearch }) {
           type="button"
           onClick={onOpenSearch}
           aria-label={t("header.searchAria")}
-          className="sm:hidden grid place-items-center size-9 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground transition"
+          className="ml-auto sm:hidden grid place-items-center size-10 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground transition"
         >
-          <HugeiconsIcon icon={Search01Icon} className="size-4" />
+          <HugeiconsIcon icon={Search01Icon} className="size-5" />
         </button>
 
-        <ThemeToggle />
-        <PaletteSwitcher />
-        <LanguageSwitcher />
+        <div className="flex items-center gap-0.5 sm:gap-1">
+          <ThemeToggle />
+          <PaletteSwitcher />
+          <LanguageSwitcher />
+        </div>
         <DateTimePill />
       </div>
     </header>

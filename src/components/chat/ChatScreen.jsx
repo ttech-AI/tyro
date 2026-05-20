@@ -9,6 +9,7 @@ import { ChatMessage } from "./ChatMessage"
 import { QuickChips } from "./QuickChips"
 import { useLocale } from "@/hooks/useLocale"
 import { useConfig } from "@/hooks/useConfig"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { currentUser } from "@/data/user"
 
 function greetingKey(hour) {
@@ -26,6 +27,7 @@ function makeId() {
 export function ChatScreen({ onReset, initialAgent }) {
   const { t } = useLocale()
   const { agents, getAgent } = useConfig()
+  const isMobile = useIsMobile()
   const defaultAgentId = agents[0]?.id ?? null
   const [messages, setMessages] = useState([])
   const [agent, setAgent] = useState(initialAgent || defaultAgentId)
@@ -115,23 +117,23 @@ export function ChatScreen({ onReset, initialAgent }) {
 
   if (isEmpty) {
     return (
-      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center px-4 py-10">
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center px-4 py-6 sm:py-10">
         <PastelVoiceOrb
           state={orbState}
           level={effectiveLevel}
-          size={150}
+          size={isMobile ? 110 : 150}
           onClick={cycleOrbState}
         />
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          className="mt-10 space-y-1 text-center"
+          className="mt-6 space-y-1 text-center sm:mt-10"
         >
-          <h1 className="text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
+          <h1 className="text-2xl font-medium tracking-tight text-foreground sm:text-3xl md:text-4xl">
             {t(greetingKey(greetHour))}, {firstName}
           </h1>
-          <p className="text-2xl tracking-tight text-foreground/90 sm:text-3xl">
+          <p className="text-xl tracking-tight text-foreground/90 sm:text-2xl md:text-3xl">
             {t("chat.subtitle.lead")}{" "}
             <span className="bg-gradient-to-r from-brand-from via-brand-via to-brand-to bg-clip-text text-transparent">
               {t("chat.subtitle.highlight")}
@@ -147,9 +149,9 @@ export function ChatScreen({ onReset, initialAgent }) {
           onMicToggle={handleMicToggle}
           micActive={orbState === "listening"}
           disabled={orbState === "thinking"}
-          className="mt-12 w-full max-w-3xl"
+          className="mt-8 w-full max-w-3xl sm:mt-12"
         />
-        <div className="mt-5">
+        <div className="mt-4 sm:mt-5">
           <QuickChips onChip={handleChip} />
         </div>
       </div>
@@ -158,12 +160,12 @@ export function ChatScreen({ onReset, initialAgent }) {
 
   const activeAgent = getAgent(agent)
   return (
-    <div className="mx-auto flex h-full w-full max-w-4xl flex-1 flex-col gap-3 px-4 pb-4 pt-3">
-      <div className="flex items-center justify-between border-b border-border/60 pb-3">
-        <div className="flex items-center gap-2">
+    <div className="mx-auto flex h-full w-full max-w-4xl flex-1 flex-col px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-2 sm:gap-3 sm:px-4 sm:pb-4 sm:pt-3">
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-3">
+        <div className="flex min-w-0 items-center gap-2">
           <PastelVoiceOrb state={orbState} level={effectiveLevel} size={32} />
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-medium">{activeAgent?.name}</span>
+          <div className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate text-sm font-medium">{activeAgent?.name}</span>
             <span className="text-[10px] text-muted-foreground">
               {orbState === "thinking"
                 ? "..."
@@ -179,29 +181,32 @@ export function ChatScreen({ onReset, initialAgent }) {
           variant="ghost"
           size="sm"
           onClick={handleResetLocal}
-          className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          className="h-9 shrink-0 gap-1.5 text-xs text-muted-foreground hover:text-foreground sm:h-8"
+          aria-label={t("chat.reset")}
         >
           <HugeiconsIcon icon={Refresh01Icon} className="size-3.5" />
-          {t("chat.reset")}
+          <span className="hidden sm:inline">{t("chat.reset")}</span>
         </Button>
       </div>
 
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-1 py-2">
+      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-1 py-3">
         {messages.map((m) => (
           <ChatMessage key={m.id} message={m} />
         ))}
       </div>
 
-      <ChatComposer
-        value={input}
-        onChange={setInput}
-        onSend={handleSend}
-        agent={agent}
-        onAgentChange={setAgent}
-        onMicToggle={handleMicToggle}
-        micActive={orbState === "listening"}
-        disabled={orbState === "thinking"}
-      />
+      <div className="sticky bottom-0 -mx-3 bg-gradient-to-t from-background via-background to-transparent px-3 pt-2 sm:relative sm:mx-0 sm:bg-none sm:px-0 sm:pt-0">
+        <ChatComposer
+          value={input}
+          onChange={setInput}
+          onSend={handleSend}
+          agent={agent}
+          onAgentChange={setAgent}
+          onMicToggle={handleMicToggle}
+          micActive={orbState === "listening"}
+          disabled={orbState === "thinking"}
+        />
+      </div>
     </div>
   )
 }

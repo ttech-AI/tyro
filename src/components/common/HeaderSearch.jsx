@@ -43,7 +43,7 @@ export function HeaderSearch() {
         <button
           type="button"
           aria-label={t("header.searchAria")}
-          className="ml-auto flex items-center gap-2 h-9 px-3 rounded-xl border border-input/80 bg-background/60 text-sm text-muted-foreground hover:bg-accent hover:text-foreground hover:border-input transition shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-44 sm:w-56 lg:w-72"
+          className="ml-auto hidden sm:flex items-center gap-2 h-9 px-3 rounded-xl border border-input/80 bg-background/60 text-sm text-muted-foreground hover:bg-accent hover:text-foreground hover:border-input transition shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-56 lg:w-72"
         >
           <HugeiconsIcon icon={Search01Icon} className="size-4 shrink-0" />
           <span className="flex-1 text-left truncate">Ara…</span>

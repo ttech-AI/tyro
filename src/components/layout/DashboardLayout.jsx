@@ -24,7 +24,7 @@ export function DashboardLayout({ children, activeId, onActiveIdChange, onNewCha
         onOpenSearch={() => setSearchOpen(true)}
       />
       <SidebarInset className="bg-background overflow-hidden md:m-2 md:ml-0 md:rounded-xl md:shadow-sm md:peer-data-[state=collapsed]:ml-2 md:transition-[margin] md:duration-200 md:ease-linear">
-        <Header onOpenSearch={() => setSearchOpen(true)} />
+        <Header activeId={activeId} onOpenSearch={() => setSearchOpen(true)} />
         <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
       </SidebarInset>
       <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />

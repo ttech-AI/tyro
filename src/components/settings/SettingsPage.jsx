@@ -8,6 +8,8 @@ import {
   Robot01Icon,
   AiBrain02Icon,
   Office365Icon,
+  Settings02Icon,
+  Copy01Icon,
 } from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -28,6 +30,34 @@ import { useConfig } from "@/hooks/useConfig"
 import { useLocale } from "@/hooks/useLocale"
 import { cn } from "@/lib/utils"
 
+function IdChip({ label, value }) {
+  const { t } = useLocale()
+  async function handleCopy(e) {
+    e.stopPropagation()
+    try {
+      await navigator.clipboard.writeText(value)
+      toast.success(t("settings.field.copied").replace("{name}", label))
+    } catch {
+      toast.error(t("settings.field.copyFailed"))
+    }
+  }
+  const short = value.length > 10 ? `${value.slice(0, 6)}…${value.slice(-4)}` : value
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      title={`${label}: ${value}`}
+      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 py-0.5 text-[10px] transition hover:border-brand/40 hover:bg-brand-soft/40 hover:text-brand-deep"
+    >
+      <span className="font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <code className="font-mono text-foreground/80">{short}</code>
+      <HugeiconsIcon icon={Copy01Icon} className="size-3 text-muted-foreground" strokeWidth={1.8} />
+    </button>
+  )
+}
+
 function EntityRow({ item, kind, onEdit, onDelete }) {
   const tone =
     kind === "agent"
@@ -39,8 +69,10 @@ function EntityRow({ item, kind, onEdit, onDelete }) {
     kind === "aiApp"
       ? { background: "color-mix(in oklab, var(--brand-via) 60%, var(--brand-deep) 40%)" }
       : undefined
+  const isAgent = kind === "agent"
+  const hasAnyId = isAgent && (item.tenantId || item.clientId || item.agentId)
   return (
-    <div className="group flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition hover:border-brand/40 hover:shadow-sm">
+    <div className="group flex items-start gap-3 rounded-xl border border-border bg-card p-3 transition hover:border-brand/40 hover:shadow-sm">
       <div
         className={cn(
           "grid size-11 shrink-0 place-items-center overflow-hidden rounded-xl text-white shadow-sm",
@@ -64,23 +96,32 @@ function EntityRow({ item, kind, onEdit, onDelete }) {
           )}
         </div>
         <p className="truncate text-xs text-muted-foreground">
-          {item.description || (kind === "agent" ? item.agentId || "—" : item.url || "—")}
+          {item.description || (!isAgent ? item.url || "—" : "—")}
         </p>
+        {hasAnyId && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {item.tenantId && <IdChip label="Tenant" value={item.tenantId} />}
+            {item.clientId && <IdChip label="Client" value={item.clientId} />}
+            {item.agentId && <IdChip label="Agent" value={item.agentId} />}
+          </div>
+        )}
       </div>
-      <div className="flex shrink-0 gap-1 opacity-0 transition group-hover:opacity-100">
+      <div className="flex shrink-0 gap-1 transition-opacity md:opacity-0 md:group-hover:opacity-100">
         <Button
           size="icon"
           variant="ghost"
-          className="size-8"
+          className="size-9 sm:size-8"
           onClick={() => onEdit(item)}
+          aria-label="Edit"
         >
           <HugeiconsIcon icon={Edit02Icon} className="size-4" />
         </Button>
         <Button
           size="icon"
           variant="ghost"
-          className="size-8 text-muted-foreground hover:text-destructive"
+          className="size-9 text-muted-foreground hover:text-destructive sm:size-8"
           onClick={() => onDelete(item)}
+          aria-label="Delete"
         >
           <HugeiconsIcon icon={Delete02Icon} className="size-4" />
         </Button>
@@ -92,7 +133,7 @@ function EntityRow({ item, kind, onEdit, onDelete }) {
 function EntitySection({ kind, items, headerIcon, onAdd, onEdit, onDelete, onReset, labels }) {
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-start gap-3">
           <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-deep">
             <HugeiconsIcon icon={headerIcon} className="size-4" strokeWidth={1.6} />
@@ -102,7 +143,7 @@ function EntitySection({ kind, items, headerIcon, onAdd, onEdit, onDelete, onRes
             <p className="text-xs text-muted-foreground">{labels.subtitle}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <Button
             type="button"
             variant="outline"
@@ -116,10 +157,14 @@ function EntitySection({ kind, items, headerIcon, onAdd, onEdit, onDelete, onRes
           <Button
             type="button"
             size="sm"
-            className="h-9 gap-1.5"
+            className={cn(
+              "h-9 gap-1.5 border-0 text-white shadow-sm",
+              "bg-gradient-to-r from-brand-from via-brand-via to-brand-to",
+              "hover:brightness-110 hover:shadow-md hover:text-white",
+            )}
             onClick={onAdd}
           >
-            <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
+            <HugeiconsIcon icon={Add01Icon} className="size-3.5" strokeWidth={2} />
             {labels.add}
           </Button>
         </div>
@@ -187,7 +232,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 font-sans lg:px-6 lg:py-8" style={{ fontFamily: '"Inter Variable", "Inter", system-ui, sans-serif' }}>
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-3 py-5 font-sans sm:gap-6 sm:px-4 sm:py-6 lg:px-6 lg:py-8" style={{ fontFamily: '"Inter Variable", "Inter", system-ui, sans-serif' }}>
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
           {t("settings.title")}
@@ -196,18 +241,42 @@ export function SettingsPage() {
       </header>
 
       <Tabs value={tab} onValueChange={setTab} className="flex-1">
-        <TabsList className="bg-muted/60">
-          <TabsTrigger value="general">{t("settings.tabs.general")}</TabsTrigger>
-          <TabsTrigger value="agents">{t("settings.tabs.agents")}</TabsTrigger>
-          <TabsTrigger value="aiApps">{t("settings.tabs.aiApps")}</TabsTrigger>
-          <TabsTrigger value="businessApps">{t("settings.tabs.businessApps")}</TabsTrigger>
+        <TabsList
+          className={cn(
+            "h-auto w-full justify-start gap-1 rounded-none border-b border-border bg-transparent p-0",
+            "flex-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "md:flex-wrap md:overflow-visible",
+          )}
+        >
+          {[
+            { value: "general", icon: Settings02Icon, label: t("settings.tabs.general") },
+            { value: "agents", icon: Robot01Icon, label: t("settings.tabs.agents") },
+            { value: "aiApps", icon: AiBrain02Icon, label: t("settings.tabs.aiApps") },
+            { value: "businessApps", icon: Office365Icon, label: t("settings.tabs.businessApps") },
+          ].map((tabDef) => (
+            <TabsTrigger
+              key={tabDef.value}
+              value={tabDef.value}
+              className={cn(
+                "relative h-11 gap-2 rounded-none border-0 bg-transparent px-4 text-sm font-medium",
+                "text-muted-foreground transition data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
+                "hover:text-foreground",
+                "data-[state=active]:after:absolute data-[state=active]:after:inset-x-3 data-[state=active]:after:-bottom-px data-[state=active]:after:h-[2px]",
+                "data-[state=active]:after:rounded-full data-[state=active]:after:bg-gradient-to-r data-[state=active]:after:from-brand-from data-[state=active]:after:via-brand-via data-[state=active]:after:to-brand-to",
+                "data-[state=active]:[&_svg]:text-brand",
+              )}
+            >
+              <HugeiconsIcon icon={tabDef.icon} className="size-4" strokeWidth={1.7} />
+              <span>{tabDef.label}</span>
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        <TabsContent value="general" className="mt-6">
+        <TabsContent value="general" className="mt-8">
           <GeneralTab />
         </TabsContent>
 
-        <TabsContent value="agents" className="mt-6">
+        <TabsContent value="agents" className="mt-8">
           <EntitySection
             kind="agent"
             headerIcon={Robot01Icon}
@@ -226,7 +295,7 @@ export function SettingsPage() {
           />
         </TabsContent>
 
-        <TabsContent value="aiApps" className="mt-6">
+        <TabsContent value="aiApps" className="mt-8">
           <EntitySection
             kind="aiApp"
             headerIcon={AiBrain02Icon}
@@ -245,7 +314,7 @@ export function SettingsPage() {
           />
         </TabsContent>
 
-        <TabsContent value="businessApps" className="mt-6">
+        <TabsContent value="businessApps" className="mt-8">
           <EntitySection
             kind="businessApp"
             headerIcon={Office365Icon}

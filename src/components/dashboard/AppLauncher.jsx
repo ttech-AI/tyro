@@ -3,9 +3,99 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import { useLocale } from "@/hooks/useLocale"
 import { useConfig } from "@/hooks/useConfig"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { IconOrLogo } from "@/components/common/IconOrLogo"
+import { PastelVoiceOrb } from "@/components/brand/PastelVoiceOrb"
 import { currentUser } from "@/data/user"
+
+function greetingKey(hour) {
+  if (hour >= 5 && hour < 12) return "chat.greeting.morning"
+  if (hour >= 12 && hour < 18) return "chat.greeting.afternoon"
+  if (hour >= 18 && hour < 22) return "chat.greeting.evening"
+  return "chat.greeting.night"
+}
+
+function HeroSection({ onNewChat }) {
+  const { t } = useLocale()
+  const isMobile = useIsMobile()
+  const greetHour = new Date().getHours()
+  const firstName = (currentUser.name || "").split(" ")[0]
+
+  return (
+    <section className="relative">
+      <div className="grid grid-cols-1 items-center gap-10 py-10 md:grid-cols-[1.4fr_1fr] md:gap-12 md:py-14">
+        {/* LEFT — greeting + CTA */}
+        <div className="space-y-5">
+          <motion.h1
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            className="text-3xl font-semibold tracking-tight leading-[1.1] sm:text-4xl md:text-[44px]"
+          >
+            {t(greetingKey(greetHour))},{" "}
+            <span className="bg-gradient-to-r from-brand-from via-brand-via to-brand-to bg-clip-text text-transparent">
+              {firstName}
+            </span>
+            .
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+            className="max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg"
+          >
+            {t("dashboard.hero.subtitle")}
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="flex flex-wrap items-center gap-3 pt-1"
+          >
+            <button
+              type="button"
+              onClick={onNewChat}
+              className={cn(
+                "group inline-flex items-center gap-2 rounded-full",
+                "bg-gradient-to-r from-brand-from via-brand-via to-brand-to",
+                "px-5 py-2.5 text-sm font-semibold text-white shadow-sm",
+                "transition-all duration-200 hover:shadow-lg hover:brightness-110",
+              )}
+            >
+              {t("dashboard.hero.cta")}
+              <HugeiconsIcon
+                icon={ArrowRight01Icon}
+                className="size-4 transition-transform group-hover:translate-x-0.5"
+                strokeWidth={2}
+              />
+            </button>
+            <a
+              href="#apps"
+              className="text-sm font-medium text-muted-foreground transition hover:text-foreground"
+            >
+              {t("dashboard.hero.secondary")} →
+            </a>
+          </motion.div>
+        </div>
+
+        {/* RIGHT — orb */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.7, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+          className="flex justify-center md:justify-end"
+        >
+          <div className="cursor-pointer" onClick={onNewChat} role="button" tabIndex={0}>
+            <PastelVoiceOrb state="idle" size={isMobile ? 130 : 180} />
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  )
+}
 
 function LauncherCard({ iconName, logo, title, subtitle, onClick, index = 0, accent = "brand" }) {
   const accentClass =
@@ -25,7 +115,7 @@ function LauncherCard({ iconName, logo, title, subtitle, onClick, index = 0, acc
     <motion.button
       type="button"
       onClick={onClick}
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, delay: index * 0.04, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ y: -2 }}
@@ -57,12 +147,12 @@ function LauncherCard({ iconName, logo, title, subtitle, onClick, index = 0, acc
   )
 }
 
-function Section({ title, subtitle, children }) {
+function Section({ title, subtitle, children, first = false }) {
   return (
-    <section className="space-y-3">
+    <section className={cn("space-y-4", !first && "pt-2")}>
       <div className="px-1">
-        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
+        <h2 className="text-base font-semibold tracking-tight text-foreground">{title}</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {children}
@@ -71,77 +161,72 @@ function Section({ title, subtitle, children }) {
   )
 }
 
-function greetingKey(hour) {
-  if (hour >= 5 && hour < 12) return "chat.greeting.morning"
-  if (hour >= 12 && hour < 18) return "chat.greeting.afternoon"
-  if (hour >= 18 && hour < 22) return "chat.greeting.evening"
-  return "chat.greeting.night"
-}
-
-export function AppLauncher({ onOpenChat }) {
+export function AppLauncher({ onOpenChat, onNewChat }) {
   const { t, locale } = useLocale()
   const { agents, aiApps, businessApps } = useConfig()
-  const greetHour = new Date().getHours()
-  const firstName = currentUser.name || ""
 
   const agentSubtitle =
     locale === "tr" ? "Sohbet başlat ve sorularını sor" : "Start a chat and ask your questions"
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4 py-6 lg:px-6 lg:py-8">
-      <header className="space-y-1">
-        <p className="text-sm text-muted-foreground">
-          {t(greetingKey(greetHour))}, {firstName}
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          {t("launcher.title")}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t("launcher.subtitle")}</p>
-      </header>
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-3 pb-10 sm:gap-8 sm:px-4 sm:pb-12 lg:px-6">
+      <HeroSection onNewChat={onNewChat} />
 
-      <Section title={t("launcher.agents.title")} subtitle={t("launcher.agents.subtitle")}>
-        {agents.map((agent, i) => (
-          <LauncherCard
-            key={agent.id}
-            iconName={agent.iconName}
-            logo={agent.logo}
-            title={agent.name}
-            subtitle={agent.description || agentSubtitle}
-            onClick={() => onOpenChat?.(agent.id)}
-            index={i}
-          />
-        ))}
-      </Section>
+      {/* Elegant divider */}
+      <div
+        aria-hidden="true"
+        className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent"
+      />
 
-      <Section title={t("launcher.aiApps.title")} subtitle={t("launcher.aiApps.subtitle")}>
-        {aiApps.map((app, i) => (
-          <LauncherCard
-            key={app.id}
-            iconName={app.iconName}
-            logo={app.logo}
-            title={app.name}
-            subtitle={app.description}
-            onClick={() => app.url && window.open(app.url, "_blank", "noopener,noreferrer")}
-            index={i}
-            accent="ai"
-          />
-        ))}
-      </Section>
+      <div id="apps" className="flex flex-col gap-10 scroll-mt-20">
+        <Section
+          first
+          title={t("launcher.agents.title")}
+          subtitle={t("launcher.agents.subtitle")}
+        >
+          {agents.map((agent, i) => (
+            <LauncherCard
+              key={agent.id}
+              iconName={agent.iconName}
+              logo={agent.logo}
+              title={agent.name}
+              subtitle={agent.description || agentSubtitle}
+              onClick={() => onOpenChat?.(agent.id)}
+              index={i}
+            />
+          ))}
+        </Section>
 
-      <Section title={t("launcher.businessApps.title")} subtitle={t("launcher.businessApps.subtitle")}>
-        {businessApps.map((app, i) => (
-          <LauncherCard
-            key={app.id}
-            iconName={app.iconName}
-            logo={app.logo}
-            title={app.name}
-            subtitle={app.description}
-            onClick={() => app.url && window.open(app.url, "_blank", "noopener,noreferrer")}
-            index={i}
-            accent="business"
-          />
-        ))}
-      </Section>
+        <Section title={t("launcher.aiApps.title")} subtitle={t("launcher.aiApps.subtitle")}>
+          {aiApps.map((app, i) => (
+            <LauncherCard
+              key={app.id}
+              iconName={app.iconName}
+              logo={app.logo}
+              title={app.name}
+              subtitle={app.description}
+              onClick={() => app.url && window.open(app.url, "_blank", "noopener,noreferrer")}
+              index={i}
+              accent="ai"
+            />
+          ))}
+        </Section>
+
+        <Section title={t("launcher.businessApps.title")} subtitle={t("launcher.businessApps.subtitle")}>
+          {businessApps.map((app, i) => (
+            <LauncherCard
+              key={app.id}
+              iconName={app.iconName}
+              logo={app.logo}
+              title={app.name}
+              subtitle={app.description}
+              onClick={() => app.url && window.open(app.url, "_blank", "noopener,noreferrer")}
+              index={i}
+              accent="business"
+            />
+          ))}
+        </Section>
+      </div>
     </div>
   )
 }

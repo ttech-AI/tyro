@@ -1,4 +1,7 @@
 import { useState } from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Copy01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,6 +17,57 @@ import {
 import { IconPicker } from "./IconPicker"
 import { LogoUpload } from "./LogoUpload"
 import { useLocale } from "@/hooks/useLocale"
+import { cn } from "@/lib/utils"
+
+function IdField({ id, label, value, placeholder, onChange }) {
+  const { t } = useLocale()
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    if (!value) return
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      toast.success(t("settings.field.copied").replace("{name}", label))
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      toast.error(t("settings.field.copyFailed"))
+    }
+  }
+
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="relative">
+        <Input
+          id={id}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="pr-10 font-mono text-xs"
+        />
+        <button
+          type="button"
+          onClick={handleCopy}
+          disabled={!value}
+          aria-label={t("settings.field.copy")}
+          title={t("settings.field.copy")}
+          className={cn(
+            "absolute right-1 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-md",
+            "text-muted-foreground transition hover:bg-muted hover:text-foreground",
+            "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent",
+          )}
+        >
+          <HugeiconsIcon
+            icon={copied ? Tick01Icon : Copy01Icon}
+            className={cn("size-3.5", copied && "text-brand-via")}
+            strokeWidth={1.8}
+          />
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function emptyState(kind) {
   if (kind === "agent") {
@@ -111,37 +165,28 @@ function EntityFormInner({ kind, initialValue, onClose, onSave }) {
             </div>
 
             {isAgent ? (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="grid gap-1.5">
-                  <Label htmlFor="entity-tenant">{t("settings.field.tenantId")}</Label>
-                  <Input
-                    id="entity-tenant"
-                    value={form.tenantId}
-                    onChange={(e) => update({ tenantId: e.target.value })}
-                    placeholder="00000000-..."
-                    className="font-mono text-xs"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="entity-client">{t("settings.field.clientId")}</Label>
-                  <Input
-                    id="entity-client"
-                    value={form.clientId}
-                    onChange={(e) => update({ clientId: e.target.value })}
-                    placeholder="00000000-..."
-                    className="font-mono text-xs"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="entity-agent">{t("settings.field.agentId")}</Label>
-                  <Input
-                    id="entity-agent"
-                    value={form.agentId}
-                    onChange={(e) => update({ agentId: e.target.value })}
-                    placeholder="agent-id"
-                    className="font-mono text-xs"
-                  />
-                </div>
+              <div className="grid grid-cols-1 gap-3">
+                <IdField
+                  id="entity-tenant"
+                  label={t("settings.field.tenantId")}
+                  value={form.tenantId}
+                  placeholder="00000000-0000-0000-0000-000000000000"
+                  onChange={(v) => update({ tenantId: v })}
+                />
+                <IdField
+                  id="entity-client"
+                  label={t("settings.field.clientId")}
+                  value={form.clientId}
+                  placeholder="00000000-0000-0000-0000-000000000000"
+                  onChange={(v) => update({ clientId: v })}
+                />
+                <IdField
+                  id="entity-agent"
+                  label={t("settings.field.agentId")}
+                  value={form.agentId}
+                  placeholder="agent-id"
+                  onChange={(v) => update({ agentId: v })}
+                />
               </div>
             ) : (
               <div className="grid gap-1.5">

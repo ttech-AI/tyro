@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { Routes, Route, useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { Toaster } from "@/components/ui/sonner"
 import { DashboardLayout } from "@/components/layout/DashboardLayout"
 import { SectionCards } from "@/components/dashboard/SectionCards"
@@ -8,10 +8,27 @@ import { HeroSection } from "@/components/dashboard/HeroSection"
 import { AppLauncher } from "@/components/dashboard/AppLauncher"
 import { ChatScreen } from "@/components/chat/ChatScreen"
 import { SettingsPage } from "@/components/settings/SettingsPage"
+import { HelpPage } from "@/components/help/HelpPage"
+
+const PATH_TO_ID = {
+  "/": "dashboard",
+  "/chat": "chat",
+  "/analytics": "analytics",
+  "/settings": "settings",
+  "/help": "help",
+}
+
+const ID_TO_PATH = {
+  dashboard: "/",
+  chat: "/chat",
+  analytics: "/analytics",
+  settings: "/settings",
+  help: "/help",
+}
 
 function AnalyticsContent() {
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
+    <div className="@container/main flex flex-1 flex-col gap-2 overflow-x-hidden">
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
         <div className="px-4 lg:px-6">
           <HeroSection />
@@ -20,48 +37,63 @@ function AnalyticsContent() {
         <div className="px-4 lg:px-6">
           <ChartAreaInteractive />
         </div>
-        <DataTable />
+        <div className="overflow-x-auto">
+          <div className="min-w-[720px] sm:min-w-0">
+            <DataTable />
+          </div>
+        </div>
       </div>
     </div>
   )
 }
 
+function ChatRoute() {
+  const [params] = useSearchParams()
+  const agent = params.get("agent")
+  const reset = params.get("reset") || "0"
+  return <ChatScreen key={reset} initialAgent={agent} />
+}
+
 function App() {
-  const [activeId, setActiveId] = useState("dashboard")
-  const [chatResetKey, setChatResetKey] = useState(0)
-  const [chatPrefilledAgent, setChatPrefilledAgent] = useState(null)
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  const activeId = PATH_TO_ID[location.pathname] ?? "dashboard"
+
+  function handleActiveIdChange(id) {
+    const path = ID_TO_PATH[id] ?? "/"
+    navigate(path)
+  }
 
   function handleNewChat() {
-    setChatResetKey((k) => k + 1)
-    setChatPrefilledAgent(null)
-    setActiveId("chat")
+    navigate(`/chat?reset=${Date.now()}`)
   }
 
   function handleOpenChatWithAgent(agentId) {
-    setChatResetKey((k) => k + 1)
-    setChatPrefilledAgent(agentId)
-    setActiveId("chat")
-  }
-
-  let content
-  if (activeId === "chat") {
-    content = <ChatScreen key={chatResetKey} initialAgent={chatPrefilledAgent} />
-  } else if (activeId === "analytics") {
-    content = <AnalyticsContent />
-  } else if (activeId === "settings") {
-    content = <SettingsPage />
-  } else {
-    content = <AppLauncher onOpenChat={handleOpenChatWithAgent} />
+    navigate(`/chat?agent=${encodeURIComponent(agentId)}&reset=${Date.now()}`)
   }
 
   return (
     <>
       <DashboardLayout
         activeId={activeId}
-        onActiveIdChange={setActiveId}
+        onActiveIdChange={handleActiveIdChange}
         onNewChat={handleNewChat}
       >
-        {content}
+        <Routes>
+          <Route
+            path="/"
+            element={<AppLauncher onOpenChat={handleOpenChatWithAgent} onNewChat={handleNewChat} />}
+          />
+          <Route path="/chat" element={<ChatRoute />} />
+          <Route path="/analytics" element={<AnalyticsContent />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/help" element={<HelpPage />} />
+          <Route
+            path="*"
+            element={<AppLauncher onOpenChat={handleOpenChatWithAgent} onNewChat={handleNewChat} />}
+          />
+        </Routes>
       </DashboardLayout>
       <Toaster richColors position="bottom-center" />
     </>

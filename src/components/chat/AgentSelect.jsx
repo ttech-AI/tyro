@@ -32,7 +32,12 @@ export function AgentSelect({ value, onChange }) {
           <HugeiconsIcon icon={ArrowDown01Icon} className="size-3.5 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
+      <DropdownMenuContent
+        align="start"
+        side="top"
+        sideOffset={8}
+        className="w-[min(280px,calc(100vw-2rem))] sm:w-56"
+      >
         {agents.map((agent) => (
           <DropdownMenuItem
             key={agent.id}

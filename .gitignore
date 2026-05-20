@@ -27,3 +27,10 @@ dist-ssr
 .mcp.json
 .agents/
 skills-lock.json
+
+# Dataverse env & secrets
+.env
+.token_cache.bin
+*.snk
+__pycache__/
+*.pyc

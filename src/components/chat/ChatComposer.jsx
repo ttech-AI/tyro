@@ -51,7 +51,7 @@ export function ChatComposer({
         className,
       )}
     >
-      <div className="px-6 pt-5">
+      <div className="px-4 pt-4 sm:px-6 sm:pt-5">
         <Textarea
           ref={taRef}
           value={value}
@@ -59,10 +59,11 @@ export function ChatComposer({
           onKeyDown={handleKeyDown}
           placeholder={t("chat.placeholder")}
           rows={2}
-          className="min-h-[64px] resize-none border-0 bg-transparent dark:bg-transparent px-0 py-0 text-base leading-7 shadow-none focus-visible:ring-0 focus-visible:border-0"
+          inputMode="text"
+          className="min-h-[56px] sm:min-h-[64px] resize-none border-0 bg-transparent dark:bg-transparent px-0 py-0 text-[16px] sm:text-base leading-7 shadow-none focus-visible:ring-0 focus-visible:border-0"
         />
       </div>
-      <div className="flex items-center justify-between gap-2 px-5 py-3">
+      <div className="flex items-center justify-between gap-2 px-3 py-2.5 sm:px-5 sm:py-3">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
