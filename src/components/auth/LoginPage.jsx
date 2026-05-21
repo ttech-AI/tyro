@@ -88,12 +88,17 @@ export function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Track short viewports (laptops ≤ 820px height) so orb / spacing can shrink to fit
+  const [isShortHeight, setIsShortHeight] = useState(() => {
+    if (typeof window === "undefined") return false
+    return window.matchMedia("(max-height: 820px)").matches
+  })
   useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
-    return () => {
-      document.body.style.overflow = prev
-    }
+    if (typeof window === "undefined") return
+    const mql = window.matchMedia("(max-height: 820px)")
+    const update = (e) => setIsShortHeight(e.matches)
+    mql.addEventListener("change", update)
+    return () => mql.removeEventListener("change", update)
   }, [])
 
   // ---------- Voice greeting: play one random file 2s after mount ----------
@@ -186,7 +191,7 @@ export function LoginPage() {
     }, 2300)
   }
 
-  const orbSize = isMobile ? 170 : 280
+  const orbSize = isMobile ? 170 : isShortHeight ? 200 : 280
 
   return (
     <div
@@ -268,7 +273,12 @@ export function LoginPage() {
       </motion.header>
 
       {/* MAIN STAGE */}
-      <main className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 pt-[96px] pb-[110px] sm:px-10 sm:pt-[120px] sm:pb-[140px]">
+      <main
+        className={cn(
+          "relative z-10 flex min-h-screen flex-col items-center justify-center px-4 sm:px-10",
+          isShortHeight ? "pt-[88px] pb-[80px] sm:pt-[100px] sm:pb-[88px]" : "pt-[96px] pb-[110px] sm:pt-[120px] sm:pb-[140px]",
+        )}
+      >
         {/* Stage: headline behind, orb on top */}
         <div className="relative flex w-full items-center justify-center">
           <motion.h1
@@ -280,7 +290,11 @@ export function LoginPage() {
             style={{
               fontFamily: '"Kanit", "Inter Variable", system-ui, sans-serif',
               fontWeight: 700,
-              fontSize: isMobile ? "clamp(56px, 22vw, 100px)" : "clamp(96px, 18vw, 240px)",
+              fontSize: isMobile
+                ? "clamp(56px, 22vw, 100px)"
+                : isShortHeight
+                  ? "clamp(80px, 14vw, 180px)"
+                  : "clamp(96px, 18vw, 240px)",
               lineHeight: 0.92,
               letterSpacing: "-0.0023em",
               textTransform: "uppercase",
@@ -370,7 +384,14 @@ export function LoginPage() {
         </div>
 
         {/* Tagline + CTA */}
-        <div className="relative z-10 mt-8 flex flex-col items-center gap-5 text-center sm:mt-14 sm:gap-7">
+        <div
+          className={cn(
+            "relative z-10 flex flex-col items-center text-center",
+            isShortHeight
+              ? "mt-6 gap-4 sm:mt-8 sm:gap-5"
+              : "mt-8 gap-5 sm:mt-14 sm:gap-7",
+          )}
+        >
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
