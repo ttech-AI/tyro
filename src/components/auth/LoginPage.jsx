@@ -197,7 +197,7 @@ export function LoginPage() {
     <div
       onMouseMove={triggerListening}
       className={cn(
-        "relative min-h-screen w-full overflow-hidden",
+        "relative flex h-screen w-full flex-col overflow-hidden",
         isDark ? "bg-[#0c0c0c] text-[#D7E2EA]" : "bg-[#fafafa] text-[#1a1a1a]",
       )}
       style={{ fontFamily: '"Inter Variable", "Inter", system-ui, sans-serif' }}
@@ -227,16 +227,16 @@ export function LoginPage() {
 
       {/* Border frame */}
       <div aria-hidden="true" className={cn("pointer-events-none absolute left-0 right-0 top-[76px] h-px sm:top-[92px]", isDark ? "bg-white/10" : "bg-black/10")} />
-      <div aria-hidden="true" className={cn("pointer-events-none absolute left-0 right-0 bottom-[56px] h-px sm:bottom-[64px]", isDark ? "bg-white/10" : "bg-black/10")} />
+      <div aria-hidden="true" className={cn("pointer-events-none absolute left-0 right-0 bottom-[48px] h-px sm:bottom-[56px]", isDark ? "bg-white/10" : "bg-black/10")} />
       <div aria-hidden="true" className={cn("pointer-events-none absolute left-0 top-0 bottom-0 w-px", isDark ? "bg-white/[0.06]" : "bg-black/[0.06]")} />
       <div aria-hidden="true" className={cn("pointer-events-none absolute right-0 top-0 bottom-0 w-px", isDark ? "bg-white/[0.06]" : "bg-black/[0.06]")} />
 
-      {/* TOP bar */}
+      {/* TOP bar (in-flow, shrink-0) */}
       <motion.header
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-        className="absolute left-0 right-0 top-0 z-20 flex h-[76px] items-center justify-between px-4 sm:h-[92px] sm:px-10 lg:px-14"
+        className="relative z-20 flex h-[76px] shrink-0 items-center justify-between px-4 sm:h-[92px] sm:px-10 lg:px-14"
       >
         {/* Brand block left */}
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-4">
@@ -272,11 +272,10 @@ export function LoginPage() {
         </div>
       </motion.header>
 
-      {/* MAIN STAGE */}
+      {/* MAIN STAGE (fills remaining viewport between header and footer) */}
       <main
         className={cn(
-          "relative z-10 flex min-h-screen flex-col items-center justify-center px-4 sm:px-10",
-          isShortHeight ? "pt-[88px] pb-[80px] sm:pt-[100px] sm:pb-[88px]" : "pt-[96px] pb-[110px] sm:pt-[120px] sm:pb-[140px]",
+          "relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-6 sm:px-10 sm:py-10",
         )}
       >
         {/* Stage: headline behind, orb on top */}
@@ -450,7 +449,7 @@ export function LoginPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.6, delay: 1.5 }}
-        className="absolute left-0 right-0 bottom-0 z-10 flex h-[56px] items-center justify-center px-3 sm:h-[64px] sm:px-10"
+        className="relative z-10 flex h-[48px] shrink-0 items-center justify-center px-3 sm:h-[56px] sm:px-10"
       >
         <p className={cn("text-center text-[9px] tracking-[0.04em] sm:text-[11px]", isDark ? "text-[#D7E2EA]/50" : "text-[#1a1a1a]/45")}>
           {t("login.copyright")}
