@@ -143,8 +143,8 @@ export function NavApps() {
   const { aiApps, businessApps } = useConfig()
   return (
     <>
-      <AppGroup titleKey="nav.appsBusiness" apps={businessApps} />
       <AppGroup titleKey="nav.appsAI" apps={aiApps} />
+      <AppGroup titleKey="nav.appsBusiness" apps={businessApps} />
     </>
   )
 }
