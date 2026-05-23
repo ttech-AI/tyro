@@ -15,50 +15,37 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 // BASE_URL is "/" in dev, "/tyro/" on GitHub Pages — strip trailing slash for router basename
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/"
 
-// Detect MSAL OAuth callback. URL-only check because Microsoft's COOP can
-// sever window.opener after the cross-origin redirect — a `code=` or `error=`
-// in the URL is unambiguous and the only way our app sees one is via OAuth.
-function isMsalCallbackWindow() {
-  if (typeof window === "undefined") return false
-  const h = window.location.hash || ""
-  const q = window.location.search || ""
-  return (
-    h.includes("code=") ||
-    h.includes("error=") ||
-    h.includes("state=") ||
-    q.includes("code=") ||
-    q.includes("error=")
-  )
-}
-
-// CRITICAL: detect popup/iframe callback BEFORE MSAL initialize() clears the URL hash.
-// If we wait, the hash is gone by the time we check and React renders inside the popup.
-const isCallback = isMsalCallbackWindow() || (typeof window !== "undefined" && window.__TYRO_MSAL_CALLBACK__ === true)
-
-// MSAL must finish initialize() before the app reads accounts
-ensureMsalInitialized().finally(() => {
-  if (isCallback) {
-    // Popup / iframe callback — MSAL has now posted the auth response to the opener
-    // via postMessage and will close this window. Do NOT render React.
-    return
-  }
-  createRoot(document.getElementById("root")).render(
-    <StrictMode>
-      <BrowserRouter basename={basename}>
-        <MsalProvider instance={msalInstance}>
-          <ThemeProvider>
-            <PaletteProvider>
-              <LocaleProvider>
-                <ConfigProvider>
-                  <TooltipProvider delayDuration={150}>
-                    <App />
-                  </TooltipProvider>
-                </ConfigProvider>
-              </LocaleProvider>
-            </PaletteProvider>
-          </ThemeProvider>
-        </MsalProvider>
-      </BrowserRouter>
-    </StrictMode>,
-  )
-})
+// MSAL redirect flow: initialize, then process any auth response the redirect
+// landed us with (clears the URL hash + sets the active account) BEFORE React
+// mounts. App's auth gate then sees the authenticated state on first render.
+ensureMsalInitialized()
+  .then(() => msalInstance.handleRedirectPromise())
+  .then((result) => {
+    if (result?.account) {
+      msalInstance.setActiveAccount(result.account)
+    }
+  })
+  .catch((err) => {
+    console.warn("[MSAL] redirect handler failed:", err?.errorCode || err?.message || err)
+  })
+  .finally(() => {
+    createRoot(document.getElementById("root")).render(
+      <StrictMode>
+        <BrowserRouter basename={basename}>
+          <MsalProvider instance={msalInstance}>
+            <ThemeProvider>
+              <PaletteProvider>
+                <LocaleProvider>
+                  <ConfigProvider>
+                    <TooltipProvider delayDuration={150}>
+                      <App />
+                    </TooltipProvider>
+                  </ConfigProvider>
+                </LocaleProvider>
+              </PaletteProvider>
+            </ThemeProvider>
+          </MsalProvider>
+        </BrowserRouter>
+      </StrictMode>,
+    )
+  })

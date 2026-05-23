@@ -2,29 +2,6 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      // MSAL popup-callback short-circuit. Must run BEFORE the React bundle so a
-      // cached/stale bundle can't navigate the popup away from the auth-code URL
-      // (otherwise the opener's polling never finds the code and the popup is stuck).
-      // Detection is intentionally URL-only — Microsoft's COOP can sever
-      // window.opener after the cross-origin redirect, so we can't rely on it.
-      // A `code=`/`error=` in the hash or query is unambiguous OAuth callback.
-      (function () {
-        var h = window.location.hash || "";
-        var q = window.location.search || "";
-        var hasAuth =
-          h.indexOf("code=") > -1 ||
-          h.indexOf("error=") > -1 ||
-          h.indexOf("state=") > -1 ||
-          q.indexOf("code=") > -1 ||
-          q.indexOf("error=") > -1;
-        if (hasAuth) {
-          window.__TYRO_MSAL_CALLBACK__ = true;
-          document.title = "Signing you in…";
-          try { window.stop(); } catch (_) {}
-        }
-      })();
-    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/pwa-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />

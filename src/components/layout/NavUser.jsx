@@ -37,16 +37,18 @@ export function NavUser() {
 
   async function handleSignOut() {
     if (isMsalConfigured) {
-      try {
-        const account = instance.getActiveAccount() ?? undefined
-        await instance.logoutPopup({ account })
-      } catch {
-        /* popup blocked / user closed — fall through */
-      }
-      instance.setActiveAccount(null)
-    } else {
-      window.sessionStorage.removeItem("tyro-logged-in")
+      const account = instance.getActiveAccount() ?? undefined
+      // logoutRedirect navigates the whole page to AAD then back to
+      // postLogoutRedirectUri (/login). Don't navigate manually — the redirect
+      // handles it, and any manual nav before it kicks in is a race.
+      await instance.logoutRedirect({ account }).catch(() => {
+        // If redirect setup fails (rare), at least clear local state.
+        instance.setActiveAccount(null)
+        navigate("/login")
+      })
+      return
     }
+    window.sessionStorage.removeItem("tyro-logged-in")
     navigate("/login")
   }
 

@@ -186,22 +186,19 @@ export function LoginPage() {
     if (activityTimer.current) clearTimeout(activityTimer.current)
     setPhase("connecting")
 
-    // MSAL configured → real Azure AD login via popup; otherwise mock flag
+    // MSAL configured → real Azure AD login via redirect; otherwise mock flag.
+    // Redirect flow: cinematic transition first, then send the user to MS.
+    // On return, main.jsx's handleRedirectPromise() picks up the auth and the
+    // auth gate sends them to /dashboard.
     if (isMsalConfigured) {
-      try {
-        const result = await instance.loginPopup(loginRequest)
-        if (result?.account) {
-          instance.setActiveAccount(result.account)
-        }
-        // Continue cinematic on success
-        setTimeout(() => setPhase("dissolving"), 200)
-        setTimeout(() => navigate("/dashboard"), 1000)
-      } catch (err) {
-        // User cancelled / popup blocked / network — revert
-        console.warn("[MSAL] login failed:", err?.errorCode || err?.message || err)
-        setPhase("idle")
-        toast.error(t("login.error"))
-      }
+      setTimeout(() => setPhase("dissolving"), 1500)
+      setTimeout(() => {
+        instance.loginRedirect(loginRequest).catch((err) => {
+          console.warn("[MSAL] login failed:", err?.errorCode || err?.message || err)
+          setPhase("idle")
+          toast.error(t("login.error"))
+        })
+      }, 2300)
       return
     }
 
