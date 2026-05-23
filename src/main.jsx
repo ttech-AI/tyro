@@ -23,6 +23,10 @@ ensureMsalInitialized()
   .then((result) => {
     if (result?.account) {
       msalInstance.setActiveAccount(result.account)
+      // Redirect URI is root; route the freshly-authed user straight to
+      // /dashboard so the auth gate doesn't flash /login while React's
+      // useIsAuthenticated catches up after the redirect callback.
+      window.history.replaceState(null, "", import.meta.env.BASE_URL + "dashboard")
     }
   })
   .catch((err) => {
