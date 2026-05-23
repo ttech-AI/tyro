@@ -38,10 +38,12 @@ export function NavUser() {
   async function handleSignOut() {
     if (isMsalConfigured) {
       try {
-        await instance.logoutPopup({ mainWindowRedirectUri: window.location.origin + import.meta.env.BASE_URL + "login" })
+        const account = instance.getActiveAccount() ?? undefined
+        await instance.logoutPopup({ account })
       } catch {
-        /* fallthrough to manual redirect */
+        /* popup blocked / user closed — fall through */
       }
+      instance.setActiveAccount(null)
     } else {
       window.sessionStorage.removeItem("tyro-logged-in")
     }
