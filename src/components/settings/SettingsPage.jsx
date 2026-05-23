@@ -242,12 +242,14 @@ export function SettingsPage() {
       <Tabs value={tab} onValueChange={setTab} className="flex-1">
         <TabsList
           className={cn(
-            // Segmented-control container — pill with muted backing and small inset padding.
-            "h-auto w-full rounded-2xl border border-border/40 bg-muted/40 p-1 backdrop-blur-sm",
+            // Recessed-track segmented-control container — inset shadow + subtle border
+            // gives the "track" the visual weight of a real macOS/iOS control.
+            "h-auto w-full rounded-2xl border border-border/60 bg-muted/60 p-1",
+            "shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)]",
             "flex gap-1",
             "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-            "md:grid md:grid-cols-4 md:overflow-visible",
-            "dark:border-white/[0.06] dark:bg-white/[0.04]",
+            "md:overflow-visible",
+            "dark:border-white/[0.06] dark:bg-black/30 dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]",
           )}
         >
           {[
@@ -260,15 +262,21 @@ export function SettingsPage() {
               key={tabDef.value}
               value={tabDef.value}
               className={cn(
-                // Each tab is its own pill. shrink-0 so horizontal scroll works on small screens.
-                "group relative inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border-0 bg-transparent px-4 text-[13px] font-medium",
+                // flex-1 makes each segment fill an equal share of the track — active
+                // highlight always anchors to its full cell, no width-jumping between tabs.
+                // min-w-fit keeps long labels readable; if the sum overflows on mobile
+                // the parent's overflow-x-auto kicks in.
+                "group relative flex h-10 min-w-fit flex-1 items-center justify-center gap-2 rounded-xl border-0 bg-transparent px-3 text-[13px] font-medium whitespace-nowrap",
                 "text-muted-foreground transition-all duration-200 ease-out",
                 "hover:text-foreground hover:bg-foreground/[0.04]",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-0",
-                // Active = elevated card-on-card. Clean, neutral — no brand stamp.
-                "data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-[0_1px_2px_rgba(0,0,0,0.04),0_2px_8px_rgba(0,0,0,0.04)]",
+                // Active = elevated card on the recessed track. Neutral color, soft shadow.
+                "data-[state=active]:bg-background data-[state=active]:text-foreground",
+                "data-[state=active]:shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_12px_rgba(0,0,0,0.06)]",
                 "data-[state=active]:ring-1 data-[state=active]:ring-black/[0.04]",
-                "dark:data-[state=active]:bg-white/[0.08] dark:data-[state=active]:text-white dark:data-[state=active]:shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_4px_12px_rgba(0,0,0,0.3)] dark:data-[state=active]:ring-white/[0.08]",
+                "dark:data-[state=active]:bg-white/[0.1] dark:data-[state=active]:text-white",
+                "dark:data-[state=active]:shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_2px_8px_rgba(0,0,0,0.4)]",
+                "dark:data-[state=active]:ring-white/[0.08]",
               )}
             >
               <HugeiconsIcon
