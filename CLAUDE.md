@@ -164,16 +164,31 @@ A Dataverse environment is wired for storing launcher items (currently parallel 
 - `fix_choice_labels.py` — `UpdateOptionValue` + display name PUT for the Type choice
 - `inspect_table.py` / `list_columns.py` / `list_publishers.py` — read-only inspectors
 - `import_seed_data.py` — imports the 12 seedConfig items into `tyro_launcherapp` (idempotent — dedupes on `tyro_name + tyro_type`)
+- `create_alternate_key.py` — idempotent creation of `tyro_NameTypeKey` (`tyro_name + tyro_type`) for upsert idempotency
+- `pull_solution.py` — **run after ANY metadata change** (column, choice value, view, form, alternate key, relationship). Verifies pac is on the right org, exports `TYROAIPlatform`, unpacks atomically into `solutions/TYROAIPlatform/`, prints a git diff summary. Data changes (rows in Settings or `import_seed_data.py`) are NOT part of the solution and don't need a re-pull.
 
-**`.env`** (gitignored) provides `DATAVERSE_URL`, `TENANT_ID`, `MCP_CLIENT_ID`, `SOLUTION_NAME`, `PUBLISHER_PREFIX`, `PAC_AUTH_PROFILE` to the scripts.
+**`.env`** (gitignored) provides `DATAVERSE_URL`, `TENANT_ID`, `MCP_CLIENT_ID`, `SOLUTION_NAME`, `PUBLISHER_PREFIX`, `PAC_AUTH_PROFILE` to the scripts. Also `VITE_MSAL_CLIENT_ID` + `VITE_MSAL_TENANT_ID` for the SPA's MSAL config.
 
-**pac CLI** is installed at `C:\Users\Cenk\AppData\Local\Microsoft\PowerAppsCli\Microsoft.PowerApps.CLI.<ver>\tools\pac.exe`. Active auth profile (`UNIVERSAL`) is shared with the VS Code Power Platform extension. To switch envs: `pac org select --environment <url>`.
+**Solution source-of-truth rule**: the unpacked XML under `solutions/TYROAIPlatform/` is the canonical schema. Cloud edits via maker.powerapps.com or `pac` are allowed, but **every such change must be followed by `python scripts/pull_solution.py` + `git commit`** so the repo doesn't drift. CI/another env can rebuild from the repo via `pac solution pack` + `pac solution import`.
+
+**pac CLI** is installed at `C:\Users\Cenk\AppData\Local\Microsoft\PowerAppsCli\Microsoft.PowerApps.CLI.<ver>\tools\pac.exe` (also a stable shim at `C:\Users\Cenk\AppData\Local\Microsoft\PowerAppsCLI\pac.cmd`). Active auth profile (`UNIVERSAL`) is shared with the VS Code Power Platform extension. To switch envs: `pac org select --environment <url>`.
+
+## MSAL + Dataverse runtime integration
+
+The SPA acquires a Dataverse delegated access token through `@azure/msal-browser` (`acquireTokenSilent` with scope `https://tyro.crm4.dynamics.com/user_impersonation`) and calls the Web API directly from the browser. No backend.
+
+- `src/lib/msal.js` exposes `loginRequest` (User.Read + OIDC scopes) and `dataverseRequest` (Dataverse scope). Redirect flow is used (`loginRedirect` / `logoutRedirect`) — popup was tried first and fought COOP severing `window.opener` after the cross-origin redirect.
+- `src/main.jsx` calls `handleRedirectPromise()` BEFORE `createRoot()` so the active account is set on the first render. After a successful callback it `replaceState`s the URL to `/dashboard` so the auth gate doesn't flash `/login`.
+- `src/App.jsx` auth gate uses `useIsAuthenticated()` + `instance.getActiveAccount()` together and gates on `inProgress !== InteractionStatus.None` to ride out the brief race where the hook returns false on the first render after callback. Authenticated user landing on `/login` (e.g. fresh redirect) is bounced to `/dashboard`.
+- `src/lib/dataverse.js` is the thin Web API wrapper: `getToken()` → `fetch(API_BASE + path)` with the OData headers. Schema mapping: agents/AI apps/business apps share the `tyro_launcherapps` entity set, distinguished by `tyro_type` (Choice values 100000000 / 100000001 / 100000002). Created via `POST`, updated via `PATCH ...(id)`, deleted via `DELETE ...(id)`.
+- `src/providers/ConfigProvider.jsx` reads from Dataverse on `useIsAuthenticated()` flip, falls back to seed/localStorage on failure (e.g. permission not yet consented). CRUD is optimistic locally with a remote write behind it.
+
+**Azure AD requirements** (set in app registration `1dfbb3bf-0faf-4d17-9d10-3bcb915083f6`):
+- Authentication → Platform: Single-page application. Redirect URIs include `https://ttech-ai.github.io/tyro/` and `http://localhost:5173/`.
+- API permissions: `Microsoft Graph` → `User.Read` (delegated), `Dynamics CRM` → `user_impersonation` (delegated). Both must have admin consent granted.
 
 **Open items** (in todo list):
-- MSAL setup in the SPA (`@azure/msal-react` + `@azure/msal-browser`)
-- After MSAL: migrate ConfigProvider's localStorage CRUD to Dataverse Web API
-- Create alternate key on `tyro_name + tyro_type` for upsert idempotency
-- `pac solution export → solutions/TYROAIPlatform/` → commit (currently solution lives only in Dataverse)
+- (none — MSAL, Dataverse integration, alternate key, and solution export all complete)
 
 ## Chat screen + PastelVoiceOrb
 
