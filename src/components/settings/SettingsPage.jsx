@@ -242,9 +242,12 @@ export function SettingsPage() {
       <Tabs value={tab} onValueChange={setTab} className="flex-1">
         <TabsList
           className={cn(
-            "h-auto w-full justify-start gap-1 rounded-none border-b border-border bg-transparent p-0",
-            "flex-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-            "md:flex-wrap md:overflow-visible",
+            // Segmented-control container — pill with muted backing and small inset padding.
+            "h-auto w-full rounded-2xl border border-border/40 bg-muted/40 p-1 backdrop-blur-sm",
+            "flex gap-1",
+            "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "md:grid md:grid-cols-4 md:overflow-visible",
+            "dark:border-white/[0.06] dark:bg-white/[0.04]",
           )}
         >
           {[
@@ -257,16 +260,23 @@ export function SettingsPage() {
               key={tabDef.value}
               value={tabDef.value}
               className={cn(
-                "relative h-12 gap-2 rounded-none border-0 bg-transparent px-4 pb-3 pt-2 text-sm font-medium",
-                "text-muted-foreground/70 transition data-[state=active]:bg-transparent data-[state=active]:text-brand-deep data-[state=active]:font-semibold data-[state=active]:shadow-none",
-                "hover:text-foreground",
-                "data-[state=active]:after:absolute data-[state=active]:after:inset-x-2 data-[state=active]:after:-bottom-px data-[state=active]:after:h-[3px]",
-                "data-[state=active]:after:rounded-t-full data-[state=active]:after:bg-brand",
-                "data-[state=active]:[&_svg]:text-brand",
+                // Each tab is its own pill. shrink-0 so horizontal scroll works on small screens.
+                "group relative inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border-0 bg-transparent px-4 text-[13px] font-medium",
+                "text-muted-foreground transition-all duration-200 ease-out",
+                "hover:text-foreground hover:bg-foreground/[0.04]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-0",
+                // Active = elevated card-on-card. Clean, neutral — no brand stamp.
+                "data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-[0_1px_2px_rgba(0,0,0,0.04),0_2px_8px_rgba(0,0,0,0.04)]",
+                "data-[state=active]:ring-1 data-[state=active]:ring-black/[0.04]",
+                "dark:data-[state=active]:bg-white/[0.08] dark:data-[state=active]:text-white dark:data-[state=active]:shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_4px_12px_rgba(0,0,0,0.3)] dark:data-[state=active]:ring-white/[0.08]",
               )}
             >
-              <HugeiconsIcon icon={tabDef.icon} className="size-4" strokeWidth={1.7} />
-              <span>{tabDef.label}</span>
+              <HugeiconsIcon
+                icon={tabDef.icon}
+                className="size-[15px] shrink-0 opacity-70 transition group-data-[state=active]:opacity-100"
+                strokeWidth={1.6}
+              />
+              <span className="truncate">{tabDef.label}</span>
             </TabsTrigger>
           ))}
         </TabsList>
