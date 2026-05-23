@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "motion/react"
+import { useMsal } from "@azure/msal-react"
+import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight02Icon, Moon02Icon, Sun03Icon, VolumeHighIcon, VolumeMute02Icon } from "@hugeicons/core-free-icons"
 import { TyroLogo } from "@/components/brand/TyroLogo"
@@ -8,6 +10,7 @@ import { PastelVoiceOrb } from "@/components/brand/PastelVoiceOrb"
 import { useLocale } from "@/hooks/useLocale"
 import { useTheme } from "@/hooks/useTheme"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { isMsalConfigured, loginRequest } from "@/lib/msal"
 import { cn } from "@/lib/utils"
 
 const INSTA_COLORS = {
@@ -55,6 +58,7 @@ export function LoginPage() {
   const { setLocale } = useLocale()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
+  const { instance } = useMsal()
 
   // phase: idle | listening | connecting | dissolving
   const [phase, setPhase] = useState("idle")
@@ -177,15 +181,34 @@ export function LoginPage() {
     }
   }, [])
 
-  function handleConnect() {
+  async function handleConnect() {
     if (isSpinning) return
     if (activityTimer.current) clearTimeout(activityTimer.current)
     setPhase("connecting")
+
+    // MSAL configured → real Azure AD login via popup; otherwise mock flag
+    if (isMsalConfigured) {
+      try {
+        const result = await instance.loginPopup(loginRequest)
+        if (result?.account) {
+          instance.setActiveAccount(result.account)
+        }
+        // Continue cinematic on success
+        setTimeout(() => setPhase("dissolving"), 200)
+        setTimeout(() => navigate("/dashboard"), 1000)
+      } catch (err) {
+        // User cancelled / popup blocked / network — revert
+        console.warn("[MSAL] login failed:", err?.errorCode || err?.message || err)
+        setPhase("idle")
+        toast.error(t("login.error"))
+      }
+      return
+    }
+
+    // Mock auth fallback
     setTimeout(() => setPhase("dissolving"), 1500)
     setTimeout(() => {
-      // Session-scoped: login is required every fresh browser session
       window.sessionStorage.setItem("tyro-logged-in", "1")
-      // Clean up legacy localStorage flag from earlier prototype
       window.localStorage.removeItem("tyro-logged-in")
       navigate("/dashboard")
     }, 2300)

@@ -6,6 +6,8 @@ import {
   Notification01Icon,
   Settings02Icon,
 } from "@hugeicons/core-free-icons"
+import { useMsal } from "@azure/msal-react"
+import { useNavigate } from "react-router-dom"
 import { PastelOrb } from "@/components/brand/PastelOrb"
 import {
   DropdownMenu,
@@ -23,11 +25,29 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useLocale } from "@/hooks/useLocale"
-import { currentUser } from "@/data/user"
+import { useMe } from "@/hooks/useMe"
+import { isMsalConfigured } from "@/lib/msal"
 
 export function NavUser() {
   const { isMobile } = useSidebar()
   const { t } = useLocale()
+  const me = useMe()
+  const { instance } = useMsal()
+  const navigate = useNavigate()
+
+  async function handleSignOut() {
+    if (isMsalConfigured) {
+      try {
+        await instance.logoutPopup({ mainWindowRedirectUri: window.location.origin + import.meta.env.BASE_URL + "login" })
+      } catch {
+        /* fallthrough to manual redirect */
+      }
+    } else {
+      window.sessionStorage.removeItem("tyro-logged-in")
+    }
+    navigate("/login")
+  }
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -38,12 +58,12 @@ export function NavUser() {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center"
             >
               <div className="-ml-[5px] size-7 shrink-0 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:size-6">
-                <PastelOrb label={currentUser.fullName} />
+                <PastelOrb label={me.fullName} />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                <span className="truncate font-medium">{currentUser.fullName}</span>
+                <span className="truncate font-medium">{me.fullName}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {currentUser.email}
+                  {me.email}
                 </span>
               </div>
               <HugeiconsIcon icon={MoreVerticalIcon} className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
@@ -58,12 +78,12 @@ export function NavUser() {
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <div className="h-8 w-8">
-                  <PastelOrb label={currentUser.fullName} />
+                  <PastelOrb label={me.fullName} />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{currentUser.fullName}</span>
+                  <span className="truncate font-medium">{me.fullName}</span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {currentUser.email}
+                    {me.email}
                   </span>
                 </div>
               </div>
@@ -85,6 +105,7 @@ export function NavUser() {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
+              onClick={handleSignOut}
               className="text-destructive font-medium focus:bg-destructive/10 focus:text-destructive data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive [&_svg]:!text-destructive"
             >
               <HugeiconsIcon icon={Logout01Icon} />

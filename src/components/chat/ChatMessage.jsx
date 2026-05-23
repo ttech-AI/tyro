@@ -4,7 +4,7 @@ import { useLocale } from "@/hooks/useLocale"
 import { PastelOrb } from "@/components/brand/PastelOrb"
 import { IconOrLogo } from "@/components/common/IconOrLogo"
 import { useConfig } from "@/hooks/useConfig"
-import { currentUser } from "@/data/user"
+import { useMe } from "@/hooks/useMe"
 
 function formatTime(date, locale) {
   return new Intl.DateTimeFormat(locale === "tr" ? "tr-TR" : "en-US", {
@@ -16,6 +16,7 @@ function formatTime(date, locale) {
 export function ChatMessage({ message }) {
   const { locale } = useLocale()
   const { getAgent } = useConfig()
+  const me = useMe()
   const isUser = message.role === "user"
   const time = message.time instanceof Date ? message.time : new Date(message.time)
 
@@ -36,7 +37,7 @@ export function ChatMessage({ message }) {
           </span>
         </div>
         <PastelOrb className="size-7 shrink-0">
-          <span className="text-[10px] font-semibold text-brand-deep">{currentUser.initials}</span>
+          <span className="text-[10px] font-semibold text-brand-deep">{me.initials}</span>
         </PastelOrb>
       </motion.div>
     )

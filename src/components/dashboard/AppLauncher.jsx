@@ -5,10 +5,10 @@ import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import { useLocale } from "@/hooks/useLocale"
 import { useConfig } from "@/hooks/useConfig"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useMe } from "@/hooks/useMe"
 import { cn } from "@/lib/utils"
 import { IconOrLogo } from "@/components/common/IconOrLogo"
 import { PastelVoiceOrb } from "@/components/brand/PastelVoiceOrb"
-import { currentUser } from "@/data/user"
 
 function greetingKey(hour) {
   if (hour >= 5 && hour < 12) return "chat.greeting.morning"
@@ -36,8 +36,9 @@ const lineVariants = {
 function HeroSection({ onNewChat }) {
   const { t } = useLocale()
   const isMobile = useIsMobile()
+  const me = useMe()
   const greetHour = new Date().getHours()
-  const firstName = (currentUser.name || "").split(" ")[0]
+  const firstName = (me.name || "").split(" ")[0]
   const greetingText = t(greetingKey(greetHour))
   const greetingWords = greetingText.split(" ")
 

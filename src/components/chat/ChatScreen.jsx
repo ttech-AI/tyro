@@ -10,7 +10,7 @@ import { QuickChips } from "./QuickChips"
 import { useLocale } from "@/hooks/useLocale"
 import { useConfig } from "@/hooks/useConfig"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { currentUser } from "@/data/user"
+import { useMe } from "@/hooks/useMe"
 
 function greetingKey(hour) {
   if (hour >= 5 && hour < 12) return "chat.greeting.morning"
@@ -36,7 +36,8 @@ export function ChatScreen({ onReset, initialAgent }) {
   const [speakingLevel, setSpeakingLevel] = useState(0)
   const scrollRef = useRef(null)
   const greetHour = new Date().getHours()
-  const firstName = currentUser.name || ""
+  const me = useMe()
+  const firstName = me.name || ""
 
   useEffect(() => {
     if (orbState !== "speaking") return

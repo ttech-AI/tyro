@@ -1,4 +1,6 @@
 import { Routes, Route, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom"
+import { useIsAuthenticated } from "@azure/msal-react"
+import { isMsalConfigured } from "@/lib/msal"
 import { Toaster } from "@/components/ui/sonner"
 import { DashboardLayout } from "@/components/layout/DashboardLayout"
 import { SectionCards } from "@/components/dashboard/SectionCards"
@@ -11,13 +13,13 @@ import { SettingsPage } from "@/components/settings/SettingsPage"
 import { HelpPage } from "@/components/help/HelpPage"
 import { LoginPage } from "@/components/auth/LoginPage"
 
-const LOGGED_IN_KEY = "tyro-logged-in"
+// Mock-auth fallback flag — only used when MSAL isn't configured (no VITE_MSAL_CLIENT_ID).
+// Lives in sessionStorage so login is required every browser session.
+const MOCK_LOGGED_IN_KEY = "tyro-logged-in"
 
-// Auth flag lives in sessionStorage so login is required every browser session.
-// Theme / locale / mute / login-defaults stay in localStorage and persist long-term.
-function readLoggedIn() {
+function readMockLoggedIn() {
   if (typeof window === "undefined") return false
-  return window.sessionStorage.getItem(LOGGED_IN_KEY) === "1"
+  return window.sessionStorage.getItem(MOCK_LOGGED_IN_KEY) === "1"
 }
 
 const PATH_TO_ID = {
@@ -67,6 +69,10 @@ function ChatRoute() {
 function App() {
   const navigate = useNavigate()
   const location = useLocation()
+  const isMsalAuthenticated = useIsAuthenticated()
+
+  // Real MSAL when configured; mock sessionStorage flag otherwise (dev / preview)
+  const isAuthenticated = isMsalConfigured ? isMsalAuthenticated : readMockLoggedIn()
 
   const activeId = PATH_TO_ID[location.pathname] ?? "dashboard"
 
@@ -94,7 +100,7 @@ function App() {
   }
 
   // Auth gate — if not logged in, redirect to /login
-  if (!readLoggedIn()) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />
   }
 
