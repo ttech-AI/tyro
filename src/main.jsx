@@ -32,10 +32,15 @@ function isMsalCallbackWindow() {
   return (isPopup || isIframe) && (hashHasAuth || queryHasAuth)
 }
 
+// CRITICAL: detect popup/iframe callback BEFORE MSAL initialize() clears the URL hash.
+// If we wait, the hash is gone by the time we check and React renders inside the popup.
+const isCallback = isMsalCallbackWindow()
+
 // MSAL must finish initialize() before the app reads accounts
 ensureMsalInitialized().finally(() => {
-  if (isMsalCallbackWindow()) {
-    // Popup / iframe callback — let MSAL.js close us via postMessage. Render nothing.
+  if (isCallback) {
+    // Popup / iframe callback — MSAL has now posted the auth response to the opener
+    // via postMessage and will close this window. Do NOT render React.
     return
   }
   createRoot(document.getElementById("root")).render(
