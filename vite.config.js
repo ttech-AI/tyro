@@ -44,7 +44,23 @@ export default defineConfig(({ command }) => ({
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,woff2,mp3}"],
         navigateFallback: command === "build" ? "/tyro/index.html" : "/index.html",
+        // Prefer fresh HTML so the popup callback always loads the latest inline
+        // short-circuit script. Falls back to cache when offline.
+        navigateFallbackDenylist: [/\?.*code=/, /#.*code=/],
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "tyro-html",
+              networkTimeoutSeconds: 3,
+              expiration: { maxEntries: 8 },
+            },
+          },
+        ],
         cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10 MiB — current main bundle ~6.6 MiB
       },
       devOptions: {

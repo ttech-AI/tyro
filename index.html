@@ -2,6 +2,34 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // MSAL popup-callback short-circuit. Must run BEFORE the React bundle so a
+      // cached/stale bundle can't navigate the popup away from the auth-code URL
+      // (otherwise the opener's polling never finds the code and the popup is stuck).
+      (function () {
+        try {
+          var isPopup = window.opener && window.opener !== window;
+          var isIframe = window.parent && window.parent !== window;
+          var h = window.location.hash || "";
+          var q = window.location.search || "";
+          var hasAuth =
+            h.indexOf("code=") > -1 ||
+            h.indexOf("error=") > -1 ||
+            h.indexOf("state=") > -1 ||
+            q.indexOf("code=") > -1 ||
+            q.indexOf("error=") > -1;
+          if ((isPopup || isIframe) && hasAuth) {
+            window.__TYRO_MSAL_CALLBACK__ = true;
+            document.documentElement.innerHTML =
+              '<head><meta charset="utf-8"><title>Authenticating…</title></head>' +
+              '<body style="background:#0a1628;color:#D7E2EA;font-family:system-ui,sans-serif;margin:0;display:grid;place-items:center;height:100vh"><div>Signing you in…</div></body>';
+            throw new Error("__TYRO_MSAL_CALLBACK_HALT__");
+          }
+        } catch (e) {
+          if (e && e.message === "__TYRO_MSAL_CALLBACK_HALT__") throw e;
+        }
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/pwa-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
