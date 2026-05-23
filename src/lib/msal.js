@@ -40,6 +40,14 @@ export const loginRequest = {
   prompt: "select_account",
 }
 
+// Dataverse Web API access. Requires the SPA app registration to have
+// "Dynamics CRM > user_impersonation" delegated permission (admin consented).
+// The scope is the Dataverse environment URL + /user_impersonation.
+export const DATAVERSE_URL = "https://tyro.crm4.dynamics.com"
+export const dataverseRequest = {
+  scopes: [`${DATAVERSE_URL}/user_impersonation`],
+}
+
 export const isMsalConfigured = Boolean(CLIENT_ID)
 
 export const msalInstance = new PublicClientApplication(msalConfig)
