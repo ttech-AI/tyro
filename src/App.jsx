@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom"
-import { useIsAuthenticated } from "@azure/msal-react"
+import { useIsAuthenticated, useMsal } from "@azure/msal-react"
+import { InteractionStatus } from "@azure/msal-browser"
 import { isMsalConfigured } from "@/lib/msal"
 import { Toaster } from "@/components/ui/sonner"
 import { DashboardLayout } from "@/components/layout/DashboardLayout"
@@ -69,10 +70,20 @@ function ChatRoute() {
 function App() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { instance, inProgress } = useMsal()
   const isMsalAuthenticated = useIsAuthenticated()
 
-  // Real MSAL when configured; mock sessionStorage flag otherwise (dev / preview)
-  const isAuthenticated = isMsalConfigured ? isMsalAuthenticated : readMockLoggedIn()
+  // While MSAL is starting up or processing a redirect callback, don't make
+  // auth-gate decisions yet — useIsAuthenticated can briefly return false
+  // before the active-account event propagates after handleRedirectPromise.
+  const msalSettling = isMsalConfigured && inProgress !== InteractionStatus.None
+
+  // Authoritative auth check: useIsAuthenticated for reactivity + direct
+  // getActiveAccount() to cover the first render after redirect (the hook
+  // sometimes lags by a tick on initial mount).
+  const isAuthenticated = isMsalConfigured
+    ? isMsalAuthenticated || !!instance.getActiveAccount()
+    : readMockLoggedIn()
 
   const activeId = PATH_TO_ID[location.pathname] ?? "dashboard"
 
@@ -89,6 +100,12 @@ function App() {
     navigate(`/chat?agent=${encodeURIComponent(agentId)}&reset=${Date.now()}`)
   }
 
+  // Authenticated user landing on /login (e.g. fresh AAD redirect back) →
+  // skip the login page entirely.
+  if (location.pathname === "/login" && isAuthenticated) {
+    return <Navigate to="/dashboard" replace />
+  }
+
   // Login is a standalone layout — no sidebar/header chrome
   if (location.pathname === "/login") {
     return (
@@ -97,6 +114,11 @@ function App() {
         <Toaster richColors position="bottom-center" />
       </>
     )
+  }
+
+  // MSAL still settling — render nothing rather than flashing the gate.
+  if (msalSettling) {
+    return null
   }
 
   // Auth gate — if not logged in, redirect to /login
