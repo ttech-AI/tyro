@@ -16,6 +16,7 @@ For Dataverse work (see Dataverse backend section), Python scripts live in `scri
 - `python scripts/list_publishers.py` — list publishers in the connected env
 - `python scripts/list_columns.py` — list custom vs system columns of `tyro_launcherapp`
 - `python scripts/import_seed_data.py` — idempotent seed-data importer
+- `python scripts/pull_solution.py` — **after ANY metadata change**: re-export `TYROAIPlatform` and unpack atomically into `solutions/TYROAIPlatform/` for source control (verifies pac is on the right org, prints `git status` summary at end)
 
 ## Stack & conventions
 
@@ -33,40 +34,47 @@ For Dataverse work (see Dataverse backend section), Python scripts live in `scri
 `src/main.jsx` wraps `<App />` in this order (outermost first):
 
 ```
-ThemeProvider     → src/providers/ThemeProvider.jsx     → tyro-theme        (light/dark)
-  PaletteProvider → src/providers/PaletteProvider.jsx   → tyro-palette      (brand palette)
-    LocaleProvider→ src/providers/LocaleProvider.jsx    → tyro-locale       (tr/en)
-      ConfigProvider → src/providers/ConfigProvider.jsx → tyro-config-v1    (agents/aiApps/businessApps)
-        TooltipProvider
-          App
+BrowserRouter
+  MsalProvider     → @azure/msal-react             (Azure AD identity, no localStorage key — MSAL owns its own cache)
+    ThemeProvider  → src/providers/ThemeProvider   → tyro-theme        (light/dark)
+      PaletteProvider → src/providers/PaletteProvider → tyro-palette   (brand palette)
+        LocaleProvider → src/providers/LocaleProvider → tyro-locale    (tr/en)
+          ConfigProvider → src/providers/ConfigProvider → tyro-config-v1 (agents/aiApps/businessApps cache)
+            TooltipProvider
+              App
 ```
 
-All four set an attribute on `<html>` (`.dark`, `data-palette="…"`, `lang="…"`) and persist to `localStorage` under the keys shown. Hooks: `useTheme`, `usePalette`, `useLocale`, `useConfig`.
+Theme / Palette / Locale providers each set an attribute on `<html>` (`.dark`, `data-palette="…"`, `lang="…"`) and persist their selection to `localStorage`. Hooks: `useTheme`, `usePalette`, `useLocale`, `useConfig`. `useMe` (`src/hooks/useMe.js`) returns `{ name, fullName, initials, email, title }` from the MSAL active account when authenticated, or from `src/data/user.js` as a mock.
 
-**ConfigProvider** holds the dynamic admin data (agents, AI products, business apps). It seeds from `src/data/seedConfig.js` on first load, then becomes the source of truth — `AppLauncher`, `NavApps`, `ChatScreen`, `AgentSelect`, `ChatMessage` all read from `useConfig()`. The Settings admin panel writes back to it (and thus to localStorage). When wiring real backend, replace the `localStorage` read/write in `ConfigProvider` with API calls — consumers won't change.
+**ConfigProvider** is the source of truth for agents / AI products / business apps. When the user is MSAL-authenticated it fetches from Dataverse (`fetchAllItems()` → `tyro_launcherapps`) and updates via optimistic-local + remote `POST/PATCH/DELETE`. The cached state is mirrored to `localStorage` so the app boots with last-known data offline. Pre-auth or on Dataverse error (e.g. permission not consented) it falls back to `src/data/seedConfig.js`. Consumers (`AppLauncher`, `NavApps`, `ChatScreen`, `AgentSelect`, `ChatMessage`, Settings tabs) all read the same shape from `useConfig()` regardless of source.
 
 ## App layout architecture
 
-`src/App.jsx` is a state-based router (no react-router). Active page lives in `activeId` state, lifted up so the sidebar can drive it:
+`src/App.jsx` uses **react-router-dom** with `BrowserRouter` (basename from `import.meta.env.BASE_URL`). `activeId` is derived from `location.pathname` via the `PATH_TO_ID` map so the sidebar can drive routing without holding its own state:
 
 ```
-App.jsx
-├── state: activeId ("dashboard" | "chat" | "analytics" | "settings")
-├── state: chatResetKey (incremented to remount ChatScreen on "new chat")
-├── state: chatPrefilledAgent (agent id to preselect on chat open)
-└── DashboardLayout (passes activeId + onActiveIdChange + onNewChat to sidebar)
-    ├── AppSidebar
-    │   ├── nav.dashboard / nav.chat / nav.analytics (ready)
-    │   ├── NavApps (Business + AI groups from useConfig)
-    │   └── nav.settings (ready), nav.help (comingSoon)
-    └── content (switch on activeId):
-        ├── dashboard  → AppLauncher (hero + 3 sections)
-        ├── chat       → ChatScreen (key={chatResetKey})
-        ├── analytics  → legacy dashboard-01 (HeroSection + SectionCards + Chart + DataTable)
-        └── settings   → SettingsPage (General + Agentlar + AI Ürünler + İş Uygulamaları tabs)
+main.jsx
+└── BrowserRouter (basename = "/tyro" in prod, "/" in dev)
+    └── MsalProvider → ThemeProvider → PaletteProvider → LocaleProvider → ConfigProvider → TooltipProvider
+        └── App.jsx — auth gate + Routes
+            ├── /login   → LoginPage (standalone, no DashboardLayout)
+            ├── /        → Navigate to /dashboard
+            ├── /dashboard → AppLauncher (hero + 3 sections)
+            ├── /chat?agent=…&reset=… → ChatScreen (key from reset param to remount)
+            ├── /analytics → legacy dashboard-01 (HeroSection + SectionCards + Chart + DataTable)
+            ├── /settings → SettingsPage (Genel + AI Agentlar + AI Ürünler + İş Uygulamaları)
+            ├── /help    → HelpPage
+            └── *        → Navigate to /dashboard
 ```
 
-Sidebar "Yeni sohbet" quick-action → `handleNewChat()` resets ChatScreen via key bump. Agent card in AppLauncher → `handleOpenChatWithAgent(id)` opens chat preselected. Clicking a non-`ready` nav item triggers a custom sonner toast (`showComingSoon` in `Sidebar.jsx`).
+**Auth gate** (in App.jsx): three guards before the inner routes render —
+1. authenticated user on `/login` → `Navigate("/dashboard")` (skip the login page on a fresh redirect callback);
+2. `inProgress !== InteractionStatus.None` → return `null` (don't make routing decisions while MSAL is in startup/handleRedirect/login);
+3. not authenticated AND not loading → `Navigate("/login")`.
+
+`isAuthenticated` is computed from `useIsAuthenticated() || !!instance.getActiveAccount()` so the first render after `handleRedirectPromise()` succeeds doesn't briefly bounce to `/login` while the hook catches up.
+
+Sidebar "Yeni sohbet" → `navigate("/chat?reset=" + Date.now())` remounts ChatScreen via the `reset` param. Agent card → `navigate("/chat?agent=…&reset=…")` opens chat preselected. Clicking a non-`ready` nav item triggers a custom sonner toast (`showComingSoon` in `Sidebar.jsx`).
 
 **NavApps overflow** (`src/components/layout/NavApps.jsx`): groups with > 3 items show first 3 + a "{count} tane daha ▾" toggle, expanding the rest with staggered fade-in. Threshold constant: `COLLAPSE_THRESHOLD`. Sidebar's icon-collapsed mode hides NavApps entirely (`group-data-[collapsible=icon]:hidden`).
 
@@ -144,17 +152,18 @@ return <h1>{t("hero.welcome")}, {currentUser.name}</h1>
 - `appMeta.js` — app version (read from `package.json`), brand, stack list — used by Settings General tab.
 - `palettes.js` — palette registry (14 palettes across two groups)
 - `strings.tr.js` / `strings.en.js` — i18n dictionaries (must stay key-aligned)
-- `user.js` — `currentUser` mock (no auth yet — will be replaced by MSAL claims)
+- `user.js` — `currentUser` mock used by the `useMe` hook when MSAL isn't configured or the user isn't signed in. With MSAL configured the hook returns `{ name, fullName, initials, email }` derived from the active account.
 - `agents.js`, `apps.js`, `nav.js`, `categories.js`, `stats.js`, `activities.js`, `notifications.js`, `tableData.js`, `chartData.js` — legacy static mock data still used by the Analytics page (HeroSection, SectionCards, DataTable, etc.). Dashboard launcher and chat reference ConfigProvider instead.
 
-## Dataverse backend (early integration)
+## Dataverse backend
 
-A Dataverse environment is wired for storing launcher items (currently parallel to localStorage; MSAL-backed frontend integration is a TODO).
+The SPA is wired to a real Dataverse environment for the launcher items. ConfigProvider reads + writes via the Web API at runtime.
 
 - **Environment**: `https://tyro.crm4.dynamics.com/` — tenant `9efa3bdf-67ad-47e3-8dfb-d1df79a6d7fa` (Tiryaki)
 - **Solution**: `TYROAIPlatform` ("TYRO AI Platform" display, publisher prefix **`tyro`**)
 - **Table**: `tyro_launcherapp` (display "TYRO Launcher App") — **OrganizationOwned** (no per-row ownership; access via Security Roles only)
 - **Columns**: `tyro_name` (primary), `tyro_type` (Choice: Agent=100000000 / AI App=100000001 / Business App=100000002), `tyro_description`, `tyro_url`, `tyro_tenantid`, `tyro_clientid`, `tyro_agentid`, `tyro_iconname`, `tyro_sortorder`, `tyro_isactive`, `tyro_logo` (file)
+- **Alternate key**: `tyro_NameTypeKey` (`tyro_name + tyro_type`) — enables upsert by business key instead of GUID
 
 **Scripts** (in `scripts/`, all use Python SDK `PowerPlatform-Dataverse-Client` + `requests` for Web API fallback):
 - `auth.py` — `load_env()` + `get_credential()` chain (SharedTokenCache → InteractiveBrowser → DeviceCode)
@@ -187,8 +196,15 @@ The SPA acquires a Dataverse delegated access token through `@azure/msal-browser
 - Authentication → Platform: Single-page application. Redirect URIs include `https://ttech-ai.github.io/tyro/` and `http://localhost:5173/`.
 - API permissions: `Microsoft Graph` → `User.Read` (delegated), `Dynamics CRM` → `user_impersonation` (delegated). Both must have admin consent granted.
 
-**Open items** (in todo list):
-- (none — MSAL, Dataverse integration, alternate key, and solution export all complete)
+## Login page
+
+`src/components/auth/LoginPage.jsx` is the standalone `/login` view (no DashboardLayout). It hardcodes the **Insta gradient palette** (`#feda77 → #dd2a7b → #8134af`) regardless of the global palette/theme so the login surface looks consistent. State machine: `idle → listening → connecting → dissolving`, mapped to PastelVoiceOrb modes plus a 4-layer cinematic portal transition (white flash + Insta-tinted bloom + sweep ring + pastel veil) before `instance.loginRedirect(loginRequest)`.
+
+- Mouse activity → orb `listening` (350ms idle debounce). Connect click → `connecting` (orb thinking with Z-axis spin + orbital satellites) → `dissolving` (portal overlay) at 1.5s → `loginRedirect()` at 2.3s.
+- On first visit (no `tyro-login-initialized` flag) the page forces light + tr defaults. Persistent settings (theme, locale, mute) live in `localStorage`; the mock-mode "logged-in" flag lives in `sessionStorage` so login is required every browser session when MSAL isn't configured.
+- 2s after mount, a random `voiceassets/*.mp3` plays (orb → speaking). Mute button toggle persisted to `tyro-login-muted`.
+- Top bar exposes mute / theme / language toggles. Language button shows the *opposite* locale ("Switch to EN" while in TR).
+- Sign-out (`NavUser.handleSignOut`) calls `instance.logoutRedirect({ account })`; MSAL handles the post-logout return to `/login` via `postLogoutRedirectUri`.
 
 ## Chat screen + PastelVoiceOrb
 
@@ -220,10 +236,12 @@ The `public/favicon.svg` is the same TyroLogo paths, exported with hardcoded sky
 `.github/workflows/deploy.yml` triggers on push to `main` and pushes the Vite build to GitHub Pages (Source: GitHub Actions in repo settings). Required:
 
 - `vite.config.js` sets `base: command === "build" ? "/tyro/" : "/"` so assets resolve under `/tyro/` on Pages
-- 404.html copy from `index.html` in the workflow for SPA-style 404 fallback (we use state-based routing, no real routes — this is just defensive)
+- `index.html` copied to `404.html` in the workflow for SPA fallback (BrowserRouter routes other than `/` need this so a direct hit on `/tyro/dashboard` doesn't 404)
 - Live URL: `https://ttech-ai.github.io/tyro/`
 
 When adding new asset paths that aren't bundled by Vite (rare), reference them as `import.meta.env.BASE_URL + "..."` not absolute `/`. Remote: `https://github.com/ttech-AI/tyro.git`. The `ttech-AI` org enforces SAML SSO — pushing from a fresh clone requires `gh auth login` then SSO authorize for the org, or a PAT with SSO-authorized.
+
+**PWA (`vite-plugin-pwa`)**: `registerType: autoUpdate` with `skipWaiting + clientsClaim` so a new deploy takes over immediately. **HTML uses NetworkFirst** (3s timeout, falls back to cache) — this matters because old SPA bundles can otherwise block a fix from reaching the user. Precache cap is raised to 10 MiB (main bundle ~6.6 MiB). Manifest uses the Insta-gradient `pwa-icon.svg`. When debugging cache-staleness issues, the test recipe is: DevTools → Application → Storage → Clear site data, then hard reload — this evicts both the SW registration and Workbox caches at once.
 
 ## Skill / agent context
 
