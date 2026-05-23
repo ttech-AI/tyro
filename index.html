@@ -6,11 +6,10 @@
       // MSAL popup-callback short-circuit. Must run BEFORE the React bundle so a
       // cached/stale bundle can't navigate the popup away from the auth-code URL
       // (otherwise the opener's polling never finds the code and the popup is stuck).
-      // We call window.stop() to halt further resource loading (including the
-      // deferred React module script) and keep the URL hash intact for the opener.
+      // Detection is intentionally URL-only — Microsoft's COOP can sever
+      // window.opener after the cross-origin redirect, so we can't rely on it.
+      // A `code=`/`error=` in the hash or query is unambiguous OAuth callback.
       (function () {
-        var isPopup = window.opener && window.opener !== window;
-        var isIframe = window.parent && window.parent !== window;
         var h = window.location.hash || "";
         var q = window.location.search || "";
         var hasAuth =
@@ -19,7 +18,7 @@
           h.indexOf("state=") > -1 ||
           q.indexOf("code=") > -1 ||
           q.indexOf("error=") > -1;
-        if ((isPopup || isIframe) && hasAuth) {
+        if (hasAuth) {
           window.__TYRO_MSAL_CALLBACK__ = true;
           document.title = "Signing you in…";
           try { window.stop(); } catch (_) {}
