@@ -252,14 +252,16 @@ export function SettingsPage() {
       <Tabs value={tab} onValueChange={setTab} className="flex-1">
         <TabsList
           className={cn(
-            // Recessed-track segmented-control container — inset shadow + subtle border
-            // gives the "track" the visual weight of a real macOS/iOS control.
-            "h-auto w-full rounded-2xl border border-border/60 bg-muted/60 p-1",
+            // Recessed-track segmented-control (iOS/macOS). The track is a soft fill +
+            // subtle inset shadow ONLY — no border — so the single visible frame is the
+            // floating active thumb (see TabsTrigger). A track border here would compete
+            // with the thumb and read as two clashing frames.
+            "h-auto w-full rounded-2xl bg-muted/60 p-1",
             "shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)]",
             "flex gap-1",
             "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
             "md:overflow-visible",
-            "dark:border-white/[0.06] dark:bg-black/30 dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]",
+            "dark:bg-white/[0.04] dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]",
           )}
         >
           {[
@@ -280,13 +282,14 @@ export function SettingsPage() {
                 "text-muted-foreground transition-all duration-200 ease-out",
                 "hover:text-foreground hover:bg-foreground/[0.04]",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-0",
-                // Active = elevated card on the recessed track. Neutral color, soft shadow.
+                // Active = floating thumb on the recessed track. Separation is purely
+                // fill + soft drop shadow — NO ring/border, so it never competes with
+                // the track (that was the clashing double-frame). Tonal ladder:
+                // page < track fill < thumb fill.
                 "data-[state=active]:bg-background data-[state=active]:text-foreground",
                 "data-[state=active]:shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_12px_rgba(0,0,0,0.06)]",
-                "data-[state=active]:ring-1 data-[state=active]:ring-black/[0.04]",
-                "dark:data-[state=active]:bg-white/[0.1] dark:data-[state=active]:text-white",
-                "dark:data-[state=active]:shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_2px_8px_rgba(0,0,0,0.4)]",
-                "dark:data-[state=active]:ring-white/[0.08]",
+                "dark:data-[state=active]:bg-white/[0.12] dark:data-[state=active]:text-white",
+                "dark:data-[state=active]:shadow-[0_1px_0_rgba(255,255,255,0.1)_inset,0_2px_8px_rgba(0,0,0,0.45)]",
               )}
             >
               <HugeiconsIcon
