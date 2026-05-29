@@ -10,7 +10,7 @@ import { PastelVoiceOrb } from "@/components/brand/PastelVoiceOrb"
 import { useLocale } from "@/hooks/useLocale"
 import { useTheme } from "@/hooks/useTheme"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { isMsalConfigured, loginRequest } from "@/lib/msal"
+import { isMsalConfigured, loginRequest, MOCK_LOGGED_IN_KEY } from "@/lib/msal"
 import { cn } from "@/lib/utils"
 
 const INSTA_COLORS = {
@@ -63,6 +63,9 @@ export function LoginPage() {
   // phase: idle | listening | connecting | dissolving
   const [phase, setPhase] = useState("idle")
   const activityTimer = useRef(null)
+  // Connect-flow timers (dissolve + loginRedirect). Held so they can be cleared on
+  // unmount — otherwise a stale timer fires loginRedirect after the user left.
+  const connectTimers = useRef([])
 
   // Voice greeting state
   const [muted, setMuted] = useState(readMuted)
@@ -176,8 +179,10 @@ export function LoginPage() {
   }, [])
 
   useEffect(() => {
+    const timers = connectTimers.current
     return () => {
       if (activityTimer.current) clearTimeout(activityTimer.current)
+      timers.forEach(clearTimeout)
     }
   }, [])
 
@@ -191,24 +196,28 @@ export function LoginPage() {
     // On return, main.jsx's handleRedirectPromise() picks up the auth and the
     // auth gate sends them to /dashboard.
     if (isMsalConfigured) {
-      setTimeout(() => setPhase("dissolving"), 1500)
-      setTimeout(() => {
-        instance.loginRedirect(loginRequest).catch((err) => {
-          console.warn("[MSAL] login failed:", err?.errorCode || err?.message || err)
-          setPhase("idle")
-          toast.error(t("login.error"))
-        })
-      }, 2300)
+      connectTimers.current.push(setTimeout(() => setPhase("dissolving"), 1500))
+      connectTimers.current.push(
+        setTimeout(() => {
+          instance.loginRedirect(loginRequest).catch((err) => {
+            console.warn("[MSAL] login failed:", err?.errorCode || err?.message || err)
+            setPhase("idle")
+            toast.error(t("login.error"))
+          })
+        }, 2300),
+      )
       return
     }
 
     // Mock auth fallback
-    setTimeout(() => setPhase("dissolving"), 1500)
-    setTimeout(() => {
-      window.sessionStorage.setItem("tyro-logged-in", "1")
-      window.localStorage.removeItem("tyro-logged-in")
-      navigate("/dashboard")
-    }, 2300)
+    connectTimers.current.push(setTimeout(() => setPhase("dissolving"), 1500))
+    connectTimers.current.push(
+      setTimeout(() => {
+        window.sessionStorage.setItem(MOCK_LOGGED_IN_KEY, "1")
+        window.localStorage.removeItem(MOCK_LOGGED_IN_KEY)
+        navigate("/dashboard")
+      }, 2300),
+    )
   }
 
   const orbSize = isMobile ? 170 : isShortHeight ? 200 : 280

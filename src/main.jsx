@@ -15,41 +15,56 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 // BASE_URL is "/" in dev, "/tyro/" on GitHub Pages — strip trailing slash for router basename
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/"
 
+// MSAL runs silent token renewal in a hidden iframe pointed at the redirect URI
+// (this SPA root). Bootstrapping React there is wasteful and the in-app router can
+// navigate the iframe off the auth-response hash the parent MSAL polls for, breaking
+// renewal. index.html sets the flag + best-effort window.stop()s the bundle; this is
+// the JS-level backstop so we never run redirect handling or render in that iframe.
+function isMsalRenewalFrame() {
+  if (typeof window === "undefined") return false
+  if (window.__MSAL_RENEWAL_FRAME__) return true
+  const inIframe = window.parent && window.parent !== window
+  const hasAuth = /[?#].*(code=|error=|state=)/.test(window.location.href)
+  return Boolean(inIframe && hasAuth)
+}
+
 // MSAL redirect flow: initialize, then process any auth response the redirect
 // landed us with (clears the URL hash + sets the active account) BEFORE React
 // mounts. App's auth gate then sees the authenticated state on first render.
-ensureMsalInitialized()
-  .then(() => msalInstance.handleRedirectPromise())
-  .then((result) => {
-    if (result?.account) {
-      msalInstance.setActiveAccount(result.account)
-      // Redirect URI is root; route the freshly-authed user straight to
-      // /dashboard so the auth gate doesn't flash /login while React's
-      // useIsAuthenticated catches up after the redirect callback.
-      window.history.replaceState(null, "", import.meta.env.BASE_URL + "dashboard")
-    }
-  })
-  .catch((err) => {
-    console.warn("[MSAL] redirect handler failed:", err?.errorCode || err?.message || err)
-  })
-  .finally(() => {
-    createRoot(document.getElementById("root")).render(
-      <StrictMode>
-        <BrowserRouter basename={basename}>
-          <MsalProvider instance={msalInstance}>
-            <ThemeProvider>
-              <PaletteProvider>
-                <LocaleProvider>
-                  <ConfigProvider>
-                    <TooltipProvider delayDuration={150}>
-                      <App />
-                    </TooltipProvider>
-                  </ConfigProvider>
-                </LocaleProvider>
-              </PaletteProvider>
-            </ThemeProvider>
-          </MsalProvider>
-        </BrowserRouter>
-      </StrictMode>,
-    )
-  })
+if (!isMsalRenewalFrame()) {
+  ensureMsalInitialized()
+    .then(() => msalInstance.handleRedirectPromise())
+    .then((result) => {
+      if (result?.account) {
+        msalInstance.setActiveAccount(result.account)
+        // Redirect URI is root; route the freshly-authed user straight to
+        // /dashboard so the auth gate doesn't flash /login while React's
+        // useIsAuthenticated catches up after the redirect callback.
+        window.history.replaceState(null, "", import.meta.env.BASE_URL + "dashboard")
+      }
+    })
+    .catch((err) => {
+      console.warn("[MSAL] redirect handler failed:", err?.errorCode || err?.message || err)
+    })
+    .finally(() => {
+      createRoot(document.getElementById("root")).render(
+        <StrictMode>
+          <BrowserRouter basename={basename}>
+            <MsalProvider instance={msalInstance}>
+              <ThemeProvider>
+                <PaletteProvider>
+                  <LocaleProvider>
+                    <ConfigProvider>
+                      <TooltipProvider delayDuration={150}>
+                        <App />
+                      </TooltipProvider>
+                    </ConfigProvider>
+                  </LocaleProvider>
+                </PaletteProvider>
+              </ThemeProvider>
+            </MsalProvider>
+          </BrowserRouter>
+        </StrictMode>,
+      )
+    })
+}

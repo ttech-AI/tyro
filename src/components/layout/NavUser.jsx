@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/sidebar"
 import { useLocale } from "@/hooks/useLocale"
 import { useMe } from "@/hooks/useMe"
-import { isMsalConfigured } from "@/lib/msal"
+import { isMsalConfigured, MOCK_LOGGED_IN_KEY } from "@/lib/msal"
 
 export function NavUser() {
   const { isMobile } = useSidebar()
@@ -48,7 +48,7 @@ export function NavUser() {
       })
       return
     }
-    window.sessionStorage.removeItem("tyro-logged-in")
+    window.sessionStorage.removeItem(MOCK_LOGGED_IN_KEY)
     navigate("/login")
   }
 

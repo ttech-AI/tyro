@@ -50,6 +50,10 @@ export const dataverseRequest = {
 
 export const isMsalConfigured = Boolean(CLIENT_ID)
 
+// sessionStorage flag used ONLY when MSAL isn't configured (mock / dev login).
+// Single source of truth shared by App, LoginPage and NavUser.
+export const MOCK_LOGGED_IN_KEY = "tyro-logged-in"
+
 export const msalInstance = new PublicClientApplication(msalConfig)
 
 // Initialize the instance and pick up the active account if one exists in cache.

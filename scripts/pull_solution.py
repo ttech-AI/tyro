@@ -24,10 +24,12 @@ from __future__ import annotations
 
 import glob
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 # Make `from auth import load_env` work regardless of where this is invoked from.
@@ -100,7 +102,7 @@ def run_pac(pac: str, args: list[str], *, check: bool = True) -> subprocess.Comp
         for line in proc.stderr.rstrip().splitlines():
             print(f"    {line}", file=sys.stderr)
     if check and proc.returncode != 0:
-        raise StepFailed(f"pac {args[0]} {args[1]} failed (exit {proc.returncode})", exit_code=4)
+        raise StepFailed(f"pac {' '.join(args)} failed (exit {proc.returncode})", exit_code=4)
     return proc
 
 
@@ -113,10 +115,11 @@ def verify_org(pac: str, expected_url: str) -> None:
             exit_code=3,
         )
     expected = expected_url.rstrip("/").lower()
-    actual_line = next(
-        (l for l in proc.stdout.splitlines() if "Org URL" in l), ""
-    )
-    actual = actual_line.split(":", 1)[1].strip().rstrip("/").lower() if ":" in actual_line else ""
+    # Pull the org URL straight out of the output rather than relying on a specific
+    # label/colon layout (pac's `org who` wording has varied across releases). Prefer
+    # a URL that matches the expected one; else take the first URL pac printed.
+    urls = [u.rstrip("/").lower() for u in re.findall(r"https://[^\s,]+", proc.stdout)]
+    actual = next((u for u in urls if u == expected), urls[0] if urls else "")
     if not actual or actual != expected:
         raise StepFailed(
             f"pac is connected to '{actual or '<unknown>'}' but .env points to '{expected}'.\n"
@@ -127,34 +130,42 @@ def verify_org(pac: str, expected_url: str) -> None:
 
 
 def atomic_swap(staged: Path, target: Path) -> None:
-    """Replace `target` directory with `staged`. Falls back to copy on Windows
-    when a plain rename trips over a transient lock (antivirus, Explorer, etc.)."""
+    """Replace `target` directory with `staged`. Atomic where possible; on Windows a
+    transient lock (antivirus, Explorer) can break a plain rename, so we retry then
+    fall back to copy. If anything fails the original `target` is restored from its
+    backup so the repo is never left without a solution folder."""
     backup = target.with_suffix(".old")
     if backup.exists():
         shutil.rmtree(backup, ignore_errors=True)
     if target.exists():
         target.rename(backup)
 
-    # Try rename first (atomic, fast). Retry briefly on Windows transient locks.
-    last_err: Exception | None = None
-    for attempt in range(3):
-        try:
-            staged.rename(target)
-            last_err = None
-            break
-        except PermissionError as e:
-            last_err = e
-            if attempt < 2:
-                import time
-                time.sleep(0.5 * (attempt + 1))
+    try:
+        # Try rename first (atomic, fast). Retry briefly on Windows transient locks.
+        last_err: Exception | None = None
+        for attempt in range(3):
+            try:
+                staged.rename(target)
+                last_err = None
+                break
+            except OSError as e:
+                last_err = e
+                if attempt < 2:
+                    time.sleep(0.5 * (attempt + 1))
 
-    # Final fallback: copy + delete. Slower but works around AV/Explorer locks.
-    if last_err is not None:
-        shutil.copytree(staged, target)
-        shutil.rmtree(staged, ignore_errors=True)
-
-    if backup.exists():
-        shutil.rmtree(backup, ignore_errors=True)
+        # Final fallback: copy + delete. Slower but works around AV/Explorer locks.
+        if last_err is not None:
+            shutil.copytree(staged, target, dirs_exist_ok=True)
+            shutil.rmtree(staged, ignore_errors=True)
+    except Exception:
+        # Roll back so the repo never ends up without a solution folder: if the new
+        # contents never landed but the backup is intact, put the original back.
+        if not target.exists() and backup.exists():
+            backup.rename(target)
+        raise
+    finally:
+        if backup.exists():
+            shutil.rmtree(backup, ignore_errors=True)
 
 
 def git_summary(target: Path) -> None:

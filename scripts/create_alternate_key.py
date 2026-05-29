@@ -15,7 +15,11 @@ from auth import get_credential, load_env
 from PowerPlatform.Dataverse.client import DataverseClient
 
 load_env()
-client = DataverseClient(os.environ["DATAVERSE_URL"], get_credential())
+DATAVERSE_URL = os.environ.get("DATAVERSE_URL")
+if not DATAVERSE_URL:
+    print("ERROR: DATAVERSE_URL missing from .env", file=sys.stderr)
+    sys.exit(2)
+client = DataverseClient(DATAVERSE_URL, get_credential())
 
 TABLE = "tyro_launcherapp"
 KEY_NAME = "tyro_NameTypeKey"
@@ -37,6 +41,12 @@ key = client.tables.create_alternate_key(
     display_name=DISPLAY_NAME,
 )
 print(f"Created: {key.schema_name} (status: {key.status})")
+print()
+print(
+    "Note: alternate-key activation is asynchronous — status may show Pending for a\n"
+    "few seconds. Wait until it is Active before running upserts that rely on it\n"
+    "(e.g. import_seed_data.py)."
+)
 print()
 print("All keys on table:")
 for k in client.tables.get_alternate_keys(TABLE):

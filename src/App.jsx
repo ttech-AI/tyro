@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { useIsAuthenticated, useMsal } from "@azure/msal-react"
 import { InteractionStatus } from "@azure/msal-browser"
-import { isMsalConfigured } from "@/lib/msal"
+import { isMsalConfigured, MOCK_LOGGED_IN_KEY } from "@/lib/msal"
 import { Toaster } from "@/components/ui/sonner"
 import { DashboardLayout } from "@/components/layout/DashboardLayout"
 import { SectionCards } from "@/components/dashboard/SectionCards"
@@ -14,10 +14,8 @@ import { SettingsPage } from "@/components/settings/SettingsPage"
 import { HelpPage } from "@/components/help/HelpPage"
 import { LoginPage } from "@/components/auth/LoginPage"
 
-// Mock-auth fallback flag — only used when MSAL isn't configured (no VITE_MSAL_CLIENT_ID).
-// Lives in sessionStorage so login is required every browser session.
-const MOCK_LOGGED_IN_KEY = "tyro-logged-in"
-
+// MOCK_LOGGED_IN_KEY (from @/lib/msal) is the sessionStorage flag used only when MSAL
+// isn't configured (no VITE_MSAL_CLIENT_ID), so login is required every browser session.
 function readMockLoggedIn() {
   if (typeof window === "undefined") return false
   return window.sessionStorage.getItem(MOCK_LOGGED_IN_KEY) === "1"

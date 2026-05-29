@@ -351,6 +351,8 @@ export const strings = {
   "settings.toast.saved": "{name} kaydedildi",
   "settings.toast.deleted": "{name} silindi",
   "settings.toast.reset": "{name} varsayılana döndürüldü",
+  "settings.toast.saveError": "{name} kaydedilemedi — tekrar deneyin",
+  "settings.toast.deleteError": "{name} silinemedi — tekrar deneyin",
 
   // Settings — General tab
   "settings.general.app.versionLabel": "Versiyon",

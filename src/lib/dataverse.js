@@ -1,3 +1,4 @@
+import { InteractionRequiredAuthError } from "@azure/msal-browser"
 import { msalInstance, dataverseRequest, DATAVERSE_URL } from "./msal"
 
 const API_BASE = `${DATAVERSE_URL}/api/data/v9.2`
@@ -14,14 +15,38 @@ const COLLECTION_TO_TYPE = {
   businessApps: TYPE_BUSINESS_APP,
 }
 
+// Dataverse record ids are GUIDs. Client-generated fallback ids (makeId) and the
+// static seed ids are NOT — using one as an OData key (PATCH/DELETE) returns 400.
+// Used to decide create-vs-update and to skip remote calls on local-only rows.
+export function isGuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    String(value ?? ""),
+  )
+}
+
 async function getToken() {
   const account = msalInstance.getActiveAccount()
   if (!account) throw new Error("No active MSAL account")
-  const result = await msalInstance.acquireTokenSilent({
-    ...dataverseRequest,
-    account,
-  })
-  return result.accessToken
+  try {
+    const result = await msalInstance.acquireTokenSilent({
+      ...dataverseRequest,
+      account,
+    })
+    return result.accessToken
+  } catch (err) {
+    // Silent renewal failed (refresh token expired or Dataverse consent missing).
+    // We deliberately do NOT auto-trigger an interactive redirect from a background
+    // data call — that would yank the whole page to AAD without user action. Surface
+    // a clear error so ConfigProvider falls back to cached/seed and CRUD shows a real
+    // failure; reconnecting requires an explicit sign-out / sign-in.
+    if (err instanceof InteractionRequiredAuthError) {
+      throw new Error(
+        "Dataverse session expired — sign out and sign in again to reconnect.",
+        { cause: err },
+      )
+    }
+    throw err
+  }
 }
 
 async function api(path, init = {}) {
@@ -130,17 +155,27 @@ export async function createItem(collection, item) {
     body: JSON.stringify(row),
     headers: { Prefer: "return=representation" },
   })
-  return collection === "agents" ? rowToAgent(created) : rowToApp(created)
+  const mapped = collection === "agents" ? rowToAgent(created) : rowToApp(created)
+  // tyro_logo is a Dataverse *file* column and can't be written via the entity JSON,
+  // so the server row always comes back with logo:null. Carry the client's uploaded
+  // logo forward so it survives in local state + cache (see ConfigProvider merge).
+  return { ...mapped, logo: item.logo ?? null }
 }
 
 export async function updateItem(collection, item) {
   const type = COLLECTION_TO_TYPE[collection]
   const row = collection === "agents" ? agentToRow(item) : appToRow(item, type)
-  await api(`/${TABLE}(${item.id})`, {
+  const updated = await api(`/${TABLE}(${item.id})`, {
     method: "PATCH",
     body: JSON.stringify(row),
+    headers: { Prefer: "return=representation" },
   })
-  return { ...item }
+  // Return authoritative server fields when the PATCH echoed the row; fall back to
+  // the local item if the server answered 204. Either way preserve the client logo
+  // (tyro_logo is a file column the entity JSON can't set — see createItem).
+  if (!updated) return { ...item }
+  const mapped = collection === "agents" ? rowToAgent(updated) : rowToApp(updated)
+  return { ...mapped, logo: item.logo ?? null }
 }
 
 export async function deleteItem(id) {

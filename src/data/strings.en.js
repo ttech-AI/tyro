@@ -351,6 +351,8 @@ export const strings = {
   "settings.toast.saved": "{name} saved",
   "settings.toast.deleted": "{name} deleted",
   "settings.toast.reset": "{name} reset to defaults",
+  "settings.toast.saveError": "Couldn't save {name} — please try again",
+  "settings.toast.deleteError": "Couldn't delete {name} — please try again",
 
   // Settings — General tab
   "settings.general.app.versionLabel": "Version",

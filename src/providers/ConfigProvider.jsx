@@ -5,6 +5,7 @@ import { isMsalConfigured } from "@/lib/msal"
 import * as dv from "@/lib/dataverse"
 
 const STORAGE_KEY = "tyro-config-v1"
+const COLLECTIONS = ["agents", "aiApps", "businessApps"]
 
 export const ConfigContext = createContext(null)
 
@@ -47,14 +48,45 @@ function writeCache(state) {
   }
 }
 
+// Business key for a launcher item within a collection. The collection already
+// fixes the type, so name (normalized) is the per-collection half of the server's
+// tyro_NameTypeKey (name + type) alternate key.
+const nameKey = (x) => (x.name ?? "").trim().toLowerCase()
+
+// Reconcile a fresh Dataverse snapshot with current local state:
+// - carry forward any cached logo (tyro_logo is a file column not returned inline),
+//   matching by id first then by business name (covers a local row whose id was
+//   reconciled to a server GUID under the no-crypto makeId fallback path).
+// - keep genuinely local-only rows (created offline, not yet on the server) so an
+//   optimistic add isn't dropped on the first authenticated fetch — but exclude the
+//   seed rows, whose non-GUID ids differ from the server GUIDs yet name+type-match an
+//   already-imported server row (otherwise every seed item would appear twice).
+function mergeServerData(prev, data) {
+  const merged = {}
+  for (const key of COLLECTIONS) {
+    const serverList = data[key] || []
+    const prevList = prev[key] || []
+    const prevById = new Map(prevList.map((x) => [x.id, x]))
+    const prevByName = new Map(prevList.map((x) => [nameKey(x), x]))
+    const serverIds = new Set(serverList.map((x) => x.id))
+    const serverNames = new Set(serverList.map(nameKey))
+    const withLogos = serverList.map((row) => {
+      const cached = prevById.get(row.id) || prevByName.get(nameKey(row))
+      return cached?.logo ? { ...row, logo: cached.logo } : row
+    })
+    const localOnly = prevList.filter(
+      (x) => !dv.isGuid(x.id) && !serverIds.has(x.id) && !serverNames.has(nameKey(x)),
+    )
+    merged[key] = [...withLogos, ...localOnly]
+  }
+  return merged
+}
+
 export function ConfigProvider({ children }) {
-  // Start with localStorage cache (so the UI has something while Dataverse loads)
-  const [state, setState] = useState(() => ({
-    ...readCache(),
-    loading: false,
-    error: null,
-    source: "local",
-  }))
+  // Data lives in `state`; transient status (loading/error/source) is kept separate
+  // so a loading flip doesn't churn the localStorage write or re-render every consumer.
+  const [state, setState] = useState(readCache)
+  const [status, setStatus] = useState({ loading: false, error: null, source: "local" })
   const isAuthed = useIsAuthenticated()
   const useDataverse = isMsalConfigured && isAuthed
 
@@ -62,17 +94,18 @@ export function ConfigProvider({ children }) {
   useEffect(() => {
     if (!useDataverse) return
     let cancelled = false
-    setState((prev) => ({ ...prev, loading: true, error: null }))
+    setStatus((s) => ({ ...s, loading: true, error: null }))
     dv.fetchAllItems()
       .then((data) => {
         if (cancelled) return
-        setState({ ...data, loading: false, error: null, source: "dataverse" })
-        writeCache(data)
+        // Merge rather than replace — preserve cached logos and local-only rows.
+        setState((prev) => mergeServerData(prev, data))
+        setStatus({ loading: false, error: null, source: "dataverse" })
       })
       .catch((err) => {
         if (cancelled) return
         console.warn("[Dataverse] fetch failed, using cached/seed:", err.message)
-        setState((prev) => ({ ...prev, loading: false, error: err.message, source: "local" }))
+        setStatus({ loading: false, error: err.message, source: "local" })
       })
     return () => {
       cancelled = true
@@ -95,15 +128,15 @@ export function ConfigProvider({ children }) {
         const updated = idx >= 0 ? list.map((x, i) => (i === idx ? next : x)) : [...list, next]
         return { ...prev, [collection]: updated }
       })
-      // Remote write
+      // Remote write. Decide create-vs-update by whether the id is a real Dataverse
+      // GUID — a non-GUID id is a local-only/seed row that must be POSTed, never
+      // PATCHed (PATCH on a non-GUID key 400s).
       if (!useDataverse) return next
       try {
-        const isExisting =
-          state[collection]?.some((x) => x.id === id) || Boolean(item.id)
-        const saved = isExisting
+        const saved = dv.isGuid(item.id)
           ? await dv.updateItem(collection, next)
           : await dv.createItem(collection, next)
-        // Reconcile id if server returned one (insert case)
+        // Reconcile id if the server assigned one (insert case).
         if (saved.id && saved.id !== id) {
           setState((prev) => ({
             ...prev,
@@ -113,11 +146,11 @@ export function ConfigProvider({ children }) {
         return saved
       } catch (err) {
         console.warn("[Dataverse] upsert failed:", err.message)
-        setState((prev) => ({ ...prev, error: err.message }))
+        setStatus((s) => ({ ...s, error: err.message }))
         throw err
       }
     },
-    [useDataverse, state],
+    [useDataverse],
   )
 
   const remove = useCallback(
@@ -127,12 +160,13 @@ export function ConfigProvider({ children }) {
         ...prev,
         [collection]: prev[collection].filter((x) => x.id !== id),
       }))
-      if (!useDataverse) return
+      // Local-only rows (non-GUID id) were never persisted — nothing to delete remotely.
+      if (!useDataverse || !dv.isGuid(id)) return
       try {
         await dv.deleteItem(id)
       } catch (err) {
         console.warn("[Dataverse] delete failed:", err.message)
-        setState((prev) => ({ ...prev, error: err.message }))
+        setStatus((s) => ({ ...s, error: err.message }))
         throw err
       }
     },
@@ -158,9 +192,9 @@ export function ConfigProvider({ children }) {
       agents: state.agents,
       aiApps: state.aiApps,
       businessApps: state.businessApps,
-      loading: state.loading,
-      error: state.error,
-      source: state.source,
+      loading: status.loading,
+      error: status.error,
+      source: status.source,
       upsertAgent: (item) => upsert("agents", item),
       removeAgent: (id) => remove("agents", id),
       upsertAiApp: (item) => upsert("aiApps", item),
@@ -170,7 +204,7 @@ export function ConfigProvider({ children }) {
       reset,
       getAgent: (id) => state.agents.find((a) => a.id === id) ?? state.agents[0],
     }),
-    [state, upsert, remove, reset],
+    [state, status, upsert, remove, reset],
   )
 
   return <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>

@@ -206,23 +206,33 @@ export function SettingsPage() {
     setEditing(null)
   }
 
-  function handleSave(saved) {
+  async function handleSave(saved) {
     if (!editing) return
-    if (editing.kind === "agent") config.upsertAgent(saved)
-    if (editing.kind === "aiApp") config.upsertAiApp(saved)
-    if (editing.kind === "businessApp") config.upsertBusinessApp(saved)
-    toast.success(t("settings.toast.saved").replace("{name}", saved.name))
-    setEditing(null)
+    const { kind } = editing
+    try {
+      if (kind === "agent") await config.upsertAgent(saved)
+      if (kind === "aiApp") await config.upsertAiApp(saved)
+      if (kind === "businessApp") await config.upsertBusinessApp(saved)
+      toast.success(t("settings.toast.saved").replace("{name}", saved.name))
+      setEditing(null)
+    } catch {
+      // Remote write failed — keep the dialog open so the user can retry.
+      toast.error(t("settings.toast.saveError").replace("{name}", saved.name))
+    }
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deletePrompt) return
     const { kind, item } = deletePrompt
-    if (kind === "agent") config.removeAgent(item.id)
-    if (kind === "aiApp") config.removeAiApp(item.id)
-    if (kind === "businessApp") config.removeBusinessApp(item.id)
-    toast.success(t("settings.toast.deleted").replace("{name}", item.name))
-    setDeletePrompt(null)
+    try {
+      if (kind === "agent") await config.removeAgent(item.id)
+      if (kind === "aiApp") await config.removeAiApp(item.id)
+      if (kind === "businessApp") await config.removeBusinessApp(item.id)
+      toast.success(t("settings.toast.deleted").replace("{name}", item.name))
+      setDeletePrompt(null)
+    } catch {
+      toast.error(t("settings.toast.deleteError").replace("{name}", item.name))
+    }
   }
 
   function handleReset(collection, labelKey) {
