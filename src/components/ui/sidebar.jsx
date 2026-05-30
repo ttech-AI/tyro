@@ -172,11 +172,10 @@ function Sidebar({
           </SheetHeader>
           {/* Inner column needs explicit top + bottom safe-area so the
               header logo isn't hidden behind iOS Dynamic Island / notch
-              and the footer NavUser doesn't sit under the home indicator
-              (which is what the "uygulama avatarın üstüne biniyor"
-              feedback was — the system home-indicator chrome covered the
-              avatar row). */}
-          <div className="flex h-full w-full flex-col pb-safe">{children}</div>
+              and the footer NavUser doesn't sit under the home indicator.
+              Critical in PWA standalone (Add-to-Home Screen) mode where
+              the system bars overlap the webview. */}
+          <div className="flex h-full w-full flex-col pt-safe pb-safe">{children}</div>
         </SheetContent>
       </Sheet>
     );

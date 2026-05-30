@@ -257,6 +257,13 @@ export function LoginPage() {
       onMouseMove={triggerListening}
       className={cn(
         "relative flex h-[100svh] w-full flex-col overflow-hidden",
+        // PWA standalone safe-area: status bar (Dynamic Island / notch)
+        // would cover the top brand row, home indicator would clip the
+        // footer copyright. Browser-tab visits get insets=0 so the layout
+        // is identical there. Total height stays 100svh; the safe-area
+        // is applied as inner padding via Tailwind utilities defined in
+        // src/index.css.
+        "pt-safe pb-safe pl-safe pr-safe",
         isDark ? "bg-[#0c0c0c] text-[#D7E2EA]" : "bg-[#fafafa] text-[#1a1a1a]",
       )}
       style={{ fontFamily: '"Inter Variable", "Inter", system-ui, sans-serif' }}

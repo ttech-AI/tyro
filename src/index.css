@@ -617,6 +617,10 @@
     text-size-adjust: 100%;
     /* Kill the blue tap-flash on iOS / Android Chrome */
     -webkit-tap-highlight-color: transparent;
+    /* PWA standalone: the html root paints the safe-area gutters (under
+       the notch / home indicator regions where viewport-fit=cover lets
+       content show through). Without this they default to white. */
+    background-color: var(--background);
   }
   body {
     @apply bg-background text-foreground;
@@ -626,6 +630,9 @@
        rubber-band revealing white background. Per-surface scrollers use
        Tailwind's `overscroll-contain` for the same effect. */
     overscroll-behavior-y: none;
+    /* Fill the full viewport in PWA standalone — otherwise the safe-area
+       gutters can paint white when the page content is dark. */
+    min-height: 100dvh;
   }
   button:not(:disabled), [role="button"]:not(:disabled) {
     cursor: pointer;
