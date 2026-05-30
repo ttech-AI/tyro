@@ -270,10 +270,17 @@ export function ChatScreen({ onReset, initialAgent }) {
       </div>
 
       {/* Row 2 — message scroller. overscroll-contain blocks Android PTR +
-          iOS rubber-band from bubbling to the page. */}
+          iOS rubber-band from bubbling to the page. onTouchStart blurs the
+          textarea so the soft keyboard dismisses when the user taps an
+          older message — matches ChatGPT/Claude mobile behavior. */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
+        onTouchStart={() => {
+          if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur()
+          }
+        }}
         className="relative flex-1 min-h-0 space-y-4 overflow-y-auto overscroll-contain px-1 py-3"
       >
         {messages.map((m) => (

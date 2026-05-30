@@ -226,7 +226,10 @@ function Section({ title, subtitle, children, first = false }) {
         <h2 className="text-base font-semibold tracking-tight text-foreground">{title}</h2>
         <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {/* Cards: 1-col below 420 px (very small phones), 2-col from 420 px so
+          standard phones (375/390/414 viewports) get the denser 2-col grid
+          without horizontal scroll. */}
+      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {children}
       </div>
     </section>

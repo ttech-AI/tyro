@@ -193,8 +193,11 @@ export function GeneralTab() {
                   variant="ghost"
                   size="icon"
                   className={cn(
-                    "size-8 shrink-0 text-muted-foreground/60 transition hover:text-destructive",
-                    "opacity-0 group-hover:opacity-100",
+                    "size-9 shrink-0 text-muted-foreground/60 transition hover:text-destructive sm:size-8",
+                    // Always visible on touch; hover-reveal on hover-capable
+                    // devices only. Pure `opacity-0 group-hover:opacity-100`
+                    // would hide the button on mobile where hover never fires.
+                    "md:opacity-0 md:group-hover:opacity-100",
                     !entry.present && "pointer-events-none",
                   )}
                   disabled={!entry.present}
