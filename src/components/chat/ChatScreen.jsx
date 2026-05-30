@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react"
-import { motion } from "motion/react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { motion, AnimatePresence } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Refresh01Icon } from "@hugeicons/core-free-icons"
+import { Refresh01Icon, ArrowDown01Icon } from "@hugeicons/core-free-icons"
 import { Button } from "@/components/ui/button"
 import { PastelVoiceOrb } from "@/components/brand/PastelVoiceOrb"
 import { ChatComposer } from "./ChatComposer"
@@ -11,6 +11,8 @@ import { useLocale } from "@/hooks/useLocale"
 import { useConfig } from "@/hooks/useConfig"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useMe } from "@/hooks/useMe"
+import { loadMessages, saveMessages, clearMessages } from "@/lib/chatPersistence"
+import { cn } from "@/lib/utils"
 
 function greetingKey(hour) {
   if (hour >= 5 && hour < 12) return "chat.greeting.morning"
@@ -24,21 +26,35 @@ function makeId() {
   return String(Date.now()) + Math.random().toString(36).slice(2, 8)
 }
 
+// Distance from the bottom (in px) below which we treat the user as "pinned
+// to the latest" and auto-scroll on new messages. Above the threshold we
+// show a floating "↓ N new" pill instead. 120 px is the value ChatGPT /
+// Claude / Gemini all converge on.
+const NEAR_BOTTOM_THRESHOLD_PX = 120
+
 export function ChatScreen({ onReset, initialAgent }) {
   const { t } = useLocale()
   const { agents, getAgent } = useConfig()
   const isMobile = useIsMobile()
   const defaultAgentId = agents[0]?.id ?? null
-  const [messages, setMessages] = useState([])
   const [agent, setAgent] = useState(initialAgent || defaultAgentId)
+  // Hydrate from sessionStorage on first render so back-nav doesn't drop the
+  // conversation. The `?reset=` URL param at the route level remounts this
+  // component (via key), which gives us a fresh empty state by design.
+  const [messages, setMessages] = useState(() => loadMessages(initialAgent || defaultAgentId))
   const [orbState, setOrbState] = useState("idle")
   const [input, setInput] = useState("")
   const [speakingLevel, setSpeakingLevel] = useState(0)
+  // Scroll-trap state — auto-scroll only when isNearBottom; otherwise count
+  // unseen messages and surface a pill.
+  const [isNearBottom, setIsNearBottom] = useState(true)
+  const [unread, setUnread] = useState(0)
   const scrollRef = useRef(null)
   const greetHour = new Date().getHours()
   const me = useMe()
   const firstName = me.name || ""
 
+  // Speaking-mode level oscillation for the orb.
   useEffect(() => {
     if (orbState !== "speaking") return
     const id = setInterval(() => {
@@ -49,11 +65,57 @@ export function ChatScreen({ onReset, initialAgent }) {
 
   const effectiveLevel = orbState === "speaking" ? speakingLevel : 0
 
+  // Persist on every message change so back-nav (or even sidebar nav) hydrates
+  // a fresh ChatScreen with the same conversation.
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    saveMessages(agent, messages)
+  }, [messages, agent])
+
+  // Auto-scroll trap: snap to bottom if the user was already near it; else
+  // surface a "new message" pill. We track everything in refs to avoid
+  // setState inside a layout effect (cascading-render risk). The pill's
+  // displayed count is derived from messages.length - lastSeenLengthRef.
+  const lastSeenLengthRef = useRef(messages.length)
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    if (isNearBottom) {
+      el.scrollTop = el.scrollHeight
+      lastSeenLengthRef.current = messages.length
+      if (unread !== 0) setUnread(0) // eslint-disable-line react-hooks/set-state-in-effect
+    } else if (messages.length > 0) {
+      const last = messages[messages.length - 1]
+      // Don't count user's own message as "unread" — the user just sent it.
+      if (last?.role !== "user") {
+        const next = messages.length - lastSeenLengthRef.current
+        if (next !== unread) setUnread(next) // eslint-disable-line react-hooks/set-state-in-effect
+      } else {
+        lastSeenLengthRef.current = messages.length
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages])
+
+  function handleScroll() {
+    const el = scrollRef.current
+    if (!el) return
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+    const near = distance < NEAR_BOTTOM_THRESHOLD_PX
+    setIsNearBottom(near)
+    if (near) {
+      setUnread(0)
+      lastSeenLengthRef.current = messages.length
+    }
+  }
+
+  function scrollToBottom() {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })
+    setUnread(0)
+    setIsNearBottom(true)
+    lastSeenLengthRef.current = messages.length
+  }
 
   function cycleOrbState() {
     setOrbState((s) =>
@@ -87,6 +149,9 @@ export function ChatScreen({ onReset, initialAgent }) {
       content: text,
       time: new Date(),
     }
+    // Force isNearBottom true on send — the user just acted; they expect to
+    // see their message at the bottom even if they had scrolled up.
+    setIsNearBottom(true)
     setMessages((m) => [...m, userMsg])
     setInput("")
     setOrbState("thinking")
@@ -109,8 +174,11 @@ export function ChatScreen({ onReset, initialAgent }) {
 
   function handleResetLocal() {
     setMessages([])
+    clearMessages(agent)
     setOrbState("idle")
     setInput("")
+    setUnread(0)
+    setIsNearBottom(true)
     onReset?.()
   }
 
@@ -160,9 +228,20 @@ export function ChatScreen({ onReset, initialAgent }) {
   }
 
   const activeAgent = getAgent(agent)
+  // Canonical 3-row chat layout:
+  //   row 1: header  (auto)
+  //   row 2: scroll  (flex-1 min-h-0 overflow-y-auto overscroll-contain)
+  //   row 3: composer (auto, pb-safe)
+  // min-h-0 on the scroller is non-negotiable — without it flex children
+  // can't shrink below their content height, so the scroller would push the
+  // composer off-screen. Composer is NOT sticky — the 3-row flex naturally
+  // pins it. Sticky inside a transformed/overflow-hidden ancestor is fragile
+  // on iOS Safari. Root uses h-full to inherit from DashboardLayout's main,
+  // which itself is flex-1 of the viewport.
   return (
-    <div className="mx-auto flex h-full w-full max-w-4xl flex-1 flex-col px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-2 sm:gap-3 sm:px-4 sm:pb-4 sm:pt-3">
-      <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-3">
+    <div className="mx-auto flex h-full w-full max-w-4xl flex-1 flex-col px-3 pt-2 sm:px-4 sm:pt-3">
+      {/* Row 1 — header */}
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 pb-3">
         <div className="flex min-w-0 items-center gap-2">
           <PastelVoiceOrb state={orbState} level={effectiveLevel} size={32} />
           <div className="flex min-w-0 flex-col leading-tight">
@@ -182,21 +261,57 @@ export function ChatScreen({ onReset, initialAgent }) {
           variant="ghost"
           size="sm"
           onClick={handleResetLocal}
-          className="h-9 shrink-0 gap-1.5 text-xs text-muted-foreground hover:text-foreground sm:h-8"
+          className="h-11 w-11 shrink-0 gap-1.5 p-0 text-xs text-muted-foreground hover:text-foreground sm:h-8 sm:w-auto sm:px-3"
           aria-label={t("chat.reset")}
         >
-          <HugeiconsIcon icon={Refresh01Icon} className="size-3.5" />
+          <HugeiconsIcon icon={Refresh01Icon} className="size-4 sm:size-3.5" />
           <span className="hidden sm:inline">{t("chat.reset")}</span>
         </Button>
       </div>
 
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-1 py-3">
+      {/* Row 2 — message scroller. overscroll-contain blocks Android PTR +
+          iOS rubber-band from bubbling to the page. */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="relative flex-1 min-h-0 space-y-4 overflow-y-auto overscroll-contain px-1 py-3"
+      >
         {messages.map((m) => (
           <ChatMessage key={m.id} message={m} />
         ))}
       </div>
 
-      <div className="sticky bottom-0 -mx-3 bg-gradient-to-t from-background via-background to-transparent px-3 pt-2 sm:relative sm:mx-0 sm:bg-none sm:px-0 sm:pt-0">
+      {/* Floating new-message pill — appears above the composer when the user
+          has scrolled up and a new assistant message arrives. */}
+      <div className="pointer-events-none relative z-10 -mb-2 flex justify-center">
+        <AnimatePresence>
+          {unread > 0 && !isNearBottom && (
+            <motion.button
+              key="new-msg-pill"
+              type="button"
+              initial={{ opacity: 0, y: 8, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.96 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              onClick={scrollToBottom}
+              className={cn(
+                "pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/90 px-3 py-1.5",
+                "text-xs font-medium text-foreground shadow-lg backdrop-blur",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40",
+              )}
+              aria-label={t("chat.scrollToLatest")}
+            >
+              <HugeiconsIcon icon={ArrowDown01Icon} className="size-3.5" strokeWidth={2} />
+              <span>{t("chat.newMessagePill").replace("{count}", String(unread))}</span>
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Row 3 — composer. pb-safe pushes the touch surface above the home
+          indicator on iPhone X+; bg solid at the bottom so the home indicator
+          doesn't bleed through the gradient. */}
+      <div className="shrink-0 bg-background pb-safe pt-2 sm:pt-3">
         <ChatComposer
           value={input}
           onChange={setInput}

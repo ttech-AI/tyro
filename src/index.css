@@ -609,14 +609,70 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
-  body {
-    @apply bg-background text-foreground;
-    }
-  button:not(:disabled), [role="button"]:not(:disabled) {
-    cursor: pointer;
-    }
+  }
   html {
     @apply font-sans;
+    /* Kill iOS Safari's auto-zoom on inputs; let users still pinch-zoom */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Kill the blue tap-flash on iOS / Android Chrome */
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Prevent Android Chrome pull-to-refresh from reloading the SPA + iOS
+       rubber-band revealing white background. Per-surface scrollers use
+       Tailwind's `overscroll-contain` for the same effect. */
+    overscroll-behavior-y: none;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  /* Anything clickable: disable the 300ms tap delay and prevent double-tap
+     to zoom on buttons/links (pinch-zoom on the page still works). */
+  button, [role="button"], a, label, input[type="checkbox"], input[type="radio"] {
+    touch-action: manipulation;
+  }
+}
+
+/* ── Mobile / PWA utilities ───────────────────────────────────────
+   Reusable helpers for safe-area insets and tap targets. Apply to
+   bottom-sticky chrome (composer, footer, toaster) and any 32–40 px
+   icon button that's reachable on a touch device. */
+@layer utilities {
+  /* Vertical safe-area padding (notch / home indicator). Use on
+     elements that sit at the top or bottom edge of the viewport. */
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+  .pt-safe {
+    padding-top: max(env(safe-area-inset-top), 0.5rem);
+  }
+  /* Landscape safe-area lateral padding (Dynamic Island, edge sensors). */
+  .pl-safe {
+    padding-left: max(env(safe-area-inset-left), 0px);
+  }
+  .pr-safe {
+    padding-right: max(env(safe-area-inset-right), 0px);
+  }
+  /* Hit-area expander — keep the icon visually 16-20 px but make the
+     interactive box >= 44 px on coarse pointers (Apple HIG / WCAG 2.5.5). */
+  @media (pointer: coarse) {
+    .touch-target {
+      min-width: 44px;
+      min-height: 44px;
     }
+  }
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

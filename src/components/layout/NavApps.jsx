@@ -32,12 +32,17 @@ const COLLAPSE_THRESHOLD = 3
 
 function AppItem({ app }) {
   const { t } = useLocale()
-  const { isMobile } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
   const href = safeExternalUrl(app.url)
+  // Tap on app row should also close the mobile sheet (the user is leaving
+  // for an external tab; the sheet would still be open behind it on return).
+  const closeOnTap = () => {
+    if (isMobile) setOpenMobile(false)
+  }
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild tooltip={app.name}>
-        <a href={href} target="_blank" rel="noopener noreferrer">
+        <a href={href} target="_blank" rel="noopener noreferrer" onClick={closeOnTap}>
           <span className="grid size-5 shrink-0 place-items-center overflow-hidden rounded-[5px]">
             <IconOrLogo
               iconName={app.iconName}
@@ -62,7 +67,7 @@ function AppItem({ app }) {
           align={isMobile ? "end" : "start"}
         >
           <DropdownMenuItem asChild>
-            <a href={href} target="_blank" rel="noopener noreferrer">
+            <a href={href} target="_blank" rel="noopener noreferrer" onClick={closeOnTap}>
               <HugeiconsIcon icon={LinkSquare02Icon} />
               <span>{t("apps.openExternal")}</span>
             </a>

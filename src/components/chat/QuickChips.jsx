@@ -18,14 +18,21 @@ const CHIPS = [
 export function QuickChips({ onChip }) {
   const { t } = useLocale()
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2">
+    // Horizontal scroll-snap row on mobile so chips never wrap awkwardly into
+    // 2-3 lines; flex-wrap layout on sm+ centers the chips like before.
+    // Hide the scrollbar visually but leave keyboard arrow-key scroll intact.
+    <div
+      role="group"
+      aria-label={t("chat.chips.aria")}
+      className="-mx-1 flex w-full items-center gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 sm:pb-0"
+    >
       {CHIPS.map((chip) => (
         <Button
           key={chip.id}
           variant="outline"
           size="sm"
           onClick={() => onChip?.(t(chip.prefixKey))}
-          className="h-10 gap-2 rounded-full border-border/70 bg-background px-4 text-sm font-medium text-foreground/80 hover:text-foreground"
+          className="h-11 shrink-0 snap-start gap-2 rounded-full border-border/70 bg-background px-4 text-sm font-medium text-foreground/80 hover:text-foreground sm:h-10 sm:shrink"
         >
           <HugeiconsIcon icon={chip.icon} className="size-[18px] text-brand-via" strokeWidth={1.6} />
           {t(chip.labelKey)}

@@ -256,7 +256,7 @@ export function LoginPage() {
     <div
       onMouseMove={triggerListening}
       className={cn(
-        "relative flex h-screen w-full flex-col overflow-hidden",
+        "relative flex h-[100svh] w-full flex-col overflow-hidden",
         isDark ? "bg-[#0c0c0c] text-[#D7E2EA]" : "bg-[#fafafa] text-[#1a1a1a]",
       )}
       style={{ fontFamily: '"Inter Variable", "Inter", system-ui, sans-serif' }}

@@ -216,11 +216,14 @@ export const strings = {
   "chat.chips.translate": "Translate",
   "chat.chips.design": "Design",
   "chat.chips.research": "Research",
+  "chat.chips.aria": "Suggested prompts",
   "chat.chips.prefix.summary": "Summarize: ",
   "chat.chips.prefix.translate": "Translate this text: ",
   "chat.chips.prefix.design": "Design suggestion: ",
   "chat.chips.prefix.research": "Research: ",
   "chat.reset": "Start new chat",
+  "chat.scrollToLatest": "Jump to latest",
+  "chat.newMessagePill": "{count} new",
 
   // App Launcher (Dashboard)
   "launcher.title": "TYRO AI Platform",

@@ -12,6 +12,7 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { TyroLogo } from "@/components/brand/TyroLogo"
 import { BrandText } from "@/components/brand/BrandText"
@@ -70,14 +71,20 @@ function showComingSoon(label, t) {
 
 export function AppSidebar({ activeId, onSelectActiveId, onNewChat, ...props }) {
   const { t } = useLocale()
+  const { isMobile, setOpenMobile } = useSidebar()
 
   const handleSelect = (item) => {
     if (item.ready) {
       onSelectActiveId?.(item.id)
       if (item.showConstructionToast) showComingSoon(t(item.labelKey), t)
+      // On mobile the sidebar is a sheet — dismiss it after a nav selection
+      // so the destination page is fully visible. Material spec + iOS HIG
+      // both prescribe this. The setOpenMobile is a no-op on desktop.
+      if (isMobile) setOpenMobile(false)
       return
     }
     showComingSoon(t(item.labelKey), t)
+    if (isMobile) setOpenMobile(false)
   }
 
   const navSecondary = [
@@ -93,6 +100,7 @@ export function AppSidebar({ activeId, onSelectActiveId, onNewChat, ...props }) 
           onClick={(e) => {
             e.preventDefault()
             onSelectActiveId?.("dashboard")
+            if (isMobile) setOpenMobile(false)
           }}
           className="flex items-center gap-1.5 py-2 pl-[3px] pr-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
         >

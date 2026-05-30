@@ -66,9 +66,14 @@ export function ChatComposer({
     el.style.height = Math.min(el.scrollHeight, max) + "px"
   }, [value])
 
-  // focus on mount
+  // Focus on mount, but ONLY on hover-capable pointer devices. On mobile,
+  // programmatic focus pops the soft keyboard (Android) or jumps the
+  // viewport (iOS) the moment the user lands on the page — both ruin the
+  // welcome experience. The user can always tap to focus.
   useEffect(() => {
-    taRef.current?.focus()
+    if (typeof window === "undefined") return
+    const isTouch = "ontouchstart" in window || !window.matchMedia("(pointer: fine)").matches
+    if (!isTouch) taRef.current?.focus()
   }, [])
 
   function handleKeyDown(e) {
@@ -247,6 +252,12 @@ export function ChatComposer({
           placeholder={t("chat.placeholder")}
           rows={2}
           inputMode="text"
+          enterKeyHint="send"
+          autoCapitalize="sentences"
+          autoCorrect="on"
+          spellCheck
+          aria-multiline="true"
+          aria-label={t("chat.placeholder")}
           className="min-h-[56px] sm:min-h-[64px] resize-none border-0 bg-transparent dark:bg-transparent px-0 py-0 text-[16px] sm:text-base leading-7 shadow-none focus-visible:ring-0 focus-visible:border-0"
         />
       </div>
@@ -259,7 +270,7 @@ export function ChatComposer({
             variant="ghost"
             size="icon"
             onClick={openFilePicker}
-            className="size-10 text-muted-foreground hover:text-foreground"
+            className="size-11 text-muted-foreground hover:text-foreground sm:size-10"
             aria-label={t("chat.attach")}
           >
             <HugeiconsIcon icon={Attachment01Icon} className="size-5" />
@@ -275,7 +286,7 @@ export function ChatComposer({
             aria-label={t("chat.format.toggle")}
             aria-pressed={richTextOpen}
             className={cn(
-              "size-10 text-muted-foreground hover:text-foreground",
+              "size-11 text-muted-foreground hover:text-foreground sm:size-10",
               richTextOpen && "bg-brand-soft/60 text-brand-deep",
             )}
           >
@@ -288,7 +299,7 @@ export function ChatComposer({
             aria-label={t("chat.mic")}
             aria-pressed={micActive}
             className={cn(
-              "size-10 rounded-full text-muted-foreground hover:text-foreground",
+              "size-11 rounded-full text-muted-foreground hover:text-foreground sm:size-10",
               micActive && "bg-brand-soft/60 text-brand-deep",
             )}
           >
@@ -300,7 +311,7 @@ export function ChatComposer({
             disabled={disabled || !hasContent}
             aria-label={t("chat.send")}
             className={cn(
-              "size-10 rounded-full bg-gradient-to-br from-brand-from via-brand-via to-brand-to p-0 text-white shadow-sm",
+              "size-11 rounded-full bg-gradient-to-br from-brand-from via-brand-via to-brand-to p-0 text-white shadow-sm sm:size-10",
               "duration-200 ease-linear hover:brightness-110 hover:text-white",
               "disabled:opacity-40 disabled:cursor-not-allowed",
             )}
