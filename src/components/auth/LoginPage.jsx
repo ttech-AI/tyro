@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion } from "motion/react"
 import { useMsal } from "@azure/msal-react"
@@ -271,9 +271,11 @@ export function LoginPage() {
     // reference at mount, so reassigning would orphan new timer ids.
     connectTimers.current.forEach(clearTimeout)
     connectTimers.current.length = 0
-    // Single-phase handoff: chrome rips out in ~220ms, orb stays put for a
-    // brief breath, then fades out as the TYRO scramble overlay cycles
-    // random glyphs and settles into T · Y · R · O. Navigate at t=1.8s.
+    // Two-beat shatter handoff (see TyroScramble for timeline). Chrome
+    // fades, orb inhales (260ms) then implodes (360ms) while 18 glyph
+    // cells spawn inside the orb's footprint and drift inward to spell
+    // "CONNECTING TO TYRO". Lock left-to-right at 46ms cadence, settle
+    // with a micro-breath, navigate at t=2.38s.
     setPhase("dissolving")
 
     if (isMsalConfigured) {
@@ -284,7 +286,7 @@ export function LoginPage() {
             setPhase("idle")
             toast.error(t("login.error"))
           })
-        }, 1800),
+        }, 2380),
       )
       return
     }
@@ -301,7 +303,7 @@ export function LoginPage() {
           setPhase("idle")
           toast.error(t("login.error"))
         }
-      }, 1800),
+      }, 2380),
     )
   }
 
@@ -487,20 +489,59 @@ export function LoginPage() {
             )}
             style={{ WebkitTapHighlightColor: "transparent" }}
           >
-            {/* Orb — no scaling on handoff, just a fade-out. A short delay
-                lets the chrome rip away first so the orb sits alone for a
-                breath before it shatters into the scramble. */}
+            {/* Orb — two-beat shatter on handoff (see workflow design spec):
+                  Beat 1 INHALE  (0-260ms): scale 1.00→1.10, brightness 1.18
+                  Beat 2 IMPLODE (260-620ms): scale 1.10→0.72, blur 0→16px,
+                                              opacity 1→0
+                  Beat 0 IDLE   : scale 1, brightness 1, no blur, opaque
+                The keyframe arrays put each beat in its time slice via
+                cubic-bezier curves. Without active=true, sits at idle. */}
             <motion.div
-              animate={{ opacity: isConnecting ? 0 : 1 }}
+              animate={
+                isConnecting
+                  ? {
+                      scale: [1, 1.1, 0.72],
+                      opacity: [1, 1, 0],
+                      filter: [
+                        "brightness(1) blur(0px)",
+                        "brightness(1.18) blur(0px)",
+                        "brightness(1.18) blur(16px)",
+                      ],
+                    }
+                  : { scale: 1, opacity: 1, filter: "brightness(1) blur(0px)" }
+              }
               transition={{
-                duration: 0.4,
-                delay: isConnecting ? 0.18 : 0,
-                ease: [0.22, 1, 0.36, 1],
+                duration: 0.62,
+                times: [0, 260 / 620, 1],
+                ease: [0.32, 0, 0.67, 0],
               }}
               className="relative"
             >
               <PastelVoiceOrb state={orbState} level={effectiveLevel} size={orbSize} />
             </motion.div>
+
+            {/* Backdrop bloom — Insta-tinted radial that fades in during
+                the orb's inhale, peaks during the implode, holds through
+                the scramble, and decays across the lock window. Sits
+                behind the orb (z=-1) so it doesn't tint the glyphs. */}
+            <motion.div
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-1/2 -z-10 rounded-full"
+              initial={{ opacity: 0 }}
+              animate={{
+                opacity: isConnecting ? [0, 0.55, 0.7, 0.7, 0.4, 0.25] : 0,
+              }}
+              transition={{
+                duration: isConnecting ? 2.38 : 0.3,
+                times: isConnecting ? [0, 0.11, 0.18, 0.56, 0.89, 1] : [0, 1],
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              style={{
+                background:
+                  "radial-gradient(circle at center, rgba(221,42,123,0.16) 0%, rgba(129,52,175,0.08) 45%, transparent 75%)",
+                filter: "blur(20px)",
+              }}
+            />
 
             {/* TYRO scramble overlay — sits absolutely centered over the orb,
                 only materializes during the handoff. Width can spill outside
@@ -618,7 +659,7 @@ export function LoginPage() {
         aria-hidden="true"
         animate={{ opacity: phase === "dissolving" ? 1 : 0 }}
         transition={{
-          duration: phase === "dissolving" ? 0.9 : 0.5,
+          duration: phase === "dissolving" ? 1.2 : 0.5,
           ease: [0.22, 1, 0.36, 1],
         }}
         className="pointer-events-none absolute inset-0 z-0"
@@ -634,36 +675,68 @@ export function LoginPage() {
 
 // --- TYRO scramble (shatter handoff) ---
 
-const SCRAMBLE_POOL = "!@#$%^&*?<>[]{}_+/\\~=:;"
-const FINAL_LETTERS = ["T", "Y", "R", "O"]
-// How the timeline unfolds once `active` flips true:
-//   0     – 350 ms: nothing rendered (chrome is still tearing out + orb sits)
-//   350   – 750 ms: each cell cycles random glyphs at ~55 ms cadence
-//   750+i*150 ms : cell i locks in its final letter (T, Y, R, O staggered)
-// All 4 cells locked by ~1150 ms; navigate fires at 1800 ms → ~650 ms hold.
-const SCRAMBLE_LEAD_IN = 350
-const SCRAMBLE_BEFORE_FIRST_LOCK = 400
-const SETTLE_STAGGER = 150
+const SCRAMBLE_POOL =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789·:/\\|<>{}[]=+-_ΞΛΔΣΩΦ◆◇△▽"
+const FINAL_TEXT = "CONNECTING TO TYRO"
+const FINAL_CHARS = FINAL_TEXT.split("")
+const SPACE_INDICES = new Set(
+  FINAL_CHARS.map((c, i) => (c === " " ? i : -1)).filter((i) => i >= 0),
+)
+// Timeline (designed by the cinematic-connect-handoff-design workflow):
+//   0-260   ms: chrome fades out + orb inhales (scale 1.10, brightness 1.18)
+//   260-620 ms: orb implodes (scale 0.72, blur 16px, opacity 0)
+//   300+i*14 ms: cell i spawns inside orb radius, drifts inward over 420 ms
+//   620-1340 ms: all cells settled, scrambling random glyphs
+//   1340+i*46 ms: cell i locks left-to-right (spaces lock instantly)
+//   2120-2380 ms: locked text holds with a micro-breath, then navigate
+const GLYPH_SPAWN_DELAY = 300
+const GLYPH_STAGGER = 14
+const GLYPH_SETTLE_DURATION = 420
+const LOCK_START_MS = 1340
+const LOCK_STEP_MS = 46
 const SCRAMBLE_TICK_MS = 55
 
+// Seeded Gaussian-ish offset per cell index so initial random positions
+// stay stable across re-renders during the scramble (re-sampling would
+// cause the inward-drift animation to flicker).
+function gaussianOffset(seed) {
+  const r1 = Math.abs(Math.sin(seed * 12.9898) * 43758.5453) % 1
+  const r2 = Math.abs(Math.sin(seed * 78.233) * 12345.6789) % 1
+  const r3 = Math.abs(Math.sin(seed * 31.7172) * 91234.567) % 1
+  return (r1 + r2 + r3) / 3
+}
+
 function TyroScramble({ active, isDark }) {
-  const [chars, setChars] = useState(["", "", "", ""])
+  const [chars, setChars] = useState(() =>
+    FINAL_CHARS.map((c) => (c === " " ? " " : "")),
+  )
+  // Stable spawn offsets per cell — computed once and frozen via useMemo
+  // (a ref read during render trips react-hooks/refs-in-render).
+  const offsets = useMemo(
+    () =>
+      FINAL_CHARS.map((_, i) => ({
+        x: (gaussianOffset(i + 1) - 0.5) * 2 * 100,
+        y: (gaussianOffset(i + 101) - 0.5) * 2 * 26,
+      })),
+    [],
+  )
 
   useEffect(() => {
     if (!active) {
-      // Reset on deactivation so a re-open of /login starts the scramble
-      // from blanks instead of flashing the previous final TYRO.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setChars(["", "", "", ""])
+      setChars(FINAL_CHARS.map((c) => (c === " " ? " " : "")))
       return
     }
     const startedAt = Date.now()
     const interval = setInterval(() => {
       const elapsed = Date.now() - startedAt
       setChars(
-        FINAL_LETTERS.map((finalChar, i) => {
-          if (elapsed < SCRAMBLE_LEAD_IN) return ""
-          const lockAt = SCRAMBLE_LEAD_IN + SCRAMBLE_BEFORE_FIRST_LOCK + i * SETTLE_STAGGER
+        FINAL_CHARS.map((finalChar, i) => {
+          if (finalChar === " ") return " "
+          const scrambleStart =
+            GLYPH_SPAWN_DELAY + i * GLYPH_STAGGER + GLYPH_SETTLE_DURATION
+          if (elapsed < scrambleStart) return ""
+          const lockAt = LOCK_START_MS + i * LOCK_STEP_MS
           if (elapsed >= lockAt) return finalChar
           return SCRAMBLE_POOL[Math.floor(Math.random() * SCRAMBLE_POOL.length)]
         }),
@@ -673,45 +746,105 @@ function TyroScramble({ active, isDark }) {
   }, [active])
 
   return (
-    <div
+    <motion.div
       aria-hidden="true"
-      className="select-none font-bold leading-none tracking-tight"
+      className="select-none leading-none whitespace-nowrap"
       style={{
-        fontFamily: '"JetBrains Mono", "Fira Code", "SF Mono", ui-monospace, monospace',
-        fontSize: "clamp(56px, 12vw, 152px)",
-        letterSpacing: "-0.02em",
+        fontFamily:
+          '"JetBrains Mono Variable", "JetBrains Mono", "Geist Mono", "SF Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace',
+        fontSize: "clamp(20px, 3.4vw, 44px)",
+        fontWeight: 600,
+        fontFeatureSettings: '"tnum" 1, "ss01" 1',
+        fontVariantNumeric: "tabular-nums",
+        textTransform: "uppercase",
+      }}
+      initial={{ letterSpacing: "0.18em", scale: 1 }}
+      animate={
+        active
+          ? {
+              letterSpacing: ["0.18em", "0.18em", "0.12em", "0.12em"],
+              scale: [1, 1, 1, 1.012, 1],
+            }
+          : { letterSpacing: "0.18em", scale: 1 }
+      }
+      transition={{
+        letterSpacing: {
+          duration: 2.12,
+          times: [0, LOCK_START_MS / 2120, 1, 1],
+          ease: "linear",
+        },
+        scale: {
+          duration: 2.38,
+          times: [0, 0.91, 0.94, 0.97, 1],
+          ease: [0.4, 0, 0.2, 1],
+        },
       }}
     >
       {chars.map((c, i) => {
-        const locked = c === FINAL_LETTERS[i]
+        if (SPACE_INDICES.has(i)) {
+          return (
+            <span
+              key={i}
+              aria-hidden="true"
+              className="inline-block"
+              style={{ width: "0.55ch" }}
+            >
+              {" "}
+            </span>
+          )
+        }
+        const locked = c === FINAL_CHARS[i] && c !== ""
+        const off = offsets[i]
         return (
           <motion.span
             key={i}
-            initial={{ opacity: 0, y: 10, scale: 0.8, filter: "blur(8px)" }}
+            initial={{
+              opacity: 0,
+              scale: 0.55,
+              x: off.x,
+              y: off.y,
+              filter: "blur(10px)",
+            }}
             animate={
               active
-                ? { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }
-                : { opacity: 0, filter: "blur(8px)" }
+                ? {
+                    opacity: 0.85,
+                    scale: 1,
+                    x: 0,
+                    y: 0,
+                    filter: "blur(0px)",
+                  }
+                : { opacity: 0, filter: "blur(10px)" }
             }
             transition={{
-              duration: 0.42,
-              delay: 0.38 + i * 0.05,
-              ease: [0.22, 1, 0.36, 1],
+              duration: GLYPH_SETTLE_DURATION / 1000,
+              delay: (GLYPH_SPAWN_DELAY + i * GLYPH_STAGGER) / 1000,
+              ease: [0.16, 1, 0.3, 1],
             }}
-            className="inline-block w-[0.9ch] text-center"
+            className="inline-block"
             style={{
-              color: locked ? "transparent" : isDark ? "rgba(255,255,255,0.88)" : "rgba(26,26,26,0.85)",
+              minWidth: "0.62ch",
+              textAlign: "center",
+              color: locked
+                ? "transparent"
+                : isDark
+                  ? "rgba(255,255,255,0.85)"
+                  : "rgba(26,26,26,0.78)",
               backgroundImage: locked ? INSTA_GRADIENT : undefined,
               WebkitBackgroundClip: locked ? "text" : undefined,
               backgroundClip: locked ? "text" : undefined,
-              transition: "color 240ms ease-out, background-image 240ms ease-out",
+              WebkitTextFillColor: locked ? "transparent" : undefined,
+              filter: locked
+                ? "drop-shadow(0 0 3px rgba(221,42,123,0.22))"
+                : "none",
+              transition: "color 280ms ease-out, filter 320ms ease-out",
             }}
           >
             {c || " "}
           </motion.span>
         )
       })}
-    </div>
+    </motion.div>
   )
 }
 
