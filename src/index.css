@@ -728,6 +728,29 @@
   }
 }
 
+/* ── Mic listening pulse ───────────────────────────────────────────
+   Single soft brand-via ring that scales outward while the dictate
+   recognizer is active. The button itself owns its own brand-via/15
+   fill — this ring is purely a "we are recording" affordance on top.
+   Gated by prefers-reduced-motion so the fill alone communicates
+   state for motion-sensitive users. */
+.mic-listening-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background-color: color-mix(in oklab, var(--brand-via) 35%, transparent);
+  opacity: 0.45;
+  animation: mic-listening-pulse 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes mic-listening-pulse {
+  0% { transform: scale(1); opacity: 0.45; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mic-listening-pulse { animation: none; opacity: 0; }
+}
+
 /* ── Scrollbars — premium chrome treatment ─────────────────────────
    8 px pill thumb on a transparent track, color-mixed from --foreground
    so it inherits light/dark theme and palette swaps automatically.

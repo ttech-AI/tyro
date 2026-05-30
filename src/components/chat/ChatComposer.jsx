@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
+import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Attachment01Icon,
   Mic01Icon,
+  MicOff01Icon,
   ArrowRight01Icon,
   TextBoldIcon,
   TextItalicIcon,
@@ -17,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { AgentSelect } from "./AgentSelect"
 import { useLocale } from "@/hooks/useLocale"
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition"
 import { cn } from "@/lib/utils"
 
 function formatFileSize(bytes) {
@@ -47,15 +50,84 @@ export function ChatComposer({
   agent,
   onAgentChange,
   onMicToggle,
-  micActive,
   disabled,
   className,
 }) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const taRef = useRef(null)
   const fileInputRef = useRef(null)
   const [attachments, setAttachments] = useState([])
   const [richTextOpen, setRichTextOpen] = useState(false)
+
+  // Mirror controlled value into a ref so dictate's onResult can read the
+  // latest text without forcing the recognizer to re-create on each keystroke.
+  const valueRef = useRef(value)
+  useEffect(() => {
+    valueRef.current = value
+  }, [value])
+
+  const unsupportedToastShownRef = useRef(false)
+
+  // Web Speech API wrapper. The hook never mutates `value` — it only fires
+  // callbacks; we own the textarea state and append finalized chunks here.
+  const speech = useSpeechRecognition({
+    lang: locale === "tr" ? "tr-TR" : "en-US",
+    continuous: true,
+    interimResults: true,
+    onResult: ({ final, isFinal }) => {
+      if (!isFinal || !final) return
+      const prev = valueRef.current ?? ""
+      const sep = prev.length === 0 || /\s$/.test(prev) ? "" : " "
+      const next = prev + sep + final
+      onChange?.(next)
+      // Restore caret to end so further typing appends naturally. Skip on
+      // touch — re-focusing fights the iOS soft-keyboard composition.
+      if (typeof window !== "undefined" && window.matchMedia?.("(pointer: fine)").matches) {
+        requestAnimationFrame(() => {
+          const ta = taRef.current
+          if (!ta) return
+          ta.focus()
+          ta.setSelectionRange(next.length, next.length)
+        })
+      }
+    },
+    onError: (code) => {
+      // user-initiated stop → silent
+      if (code === "aborted") return
+      const keyMap = {
+        "not-allowed": "chat.mic.error.permission",
+        "no-speech": "chat.mic.error.noSpeech",
+        "audio-capture": "chat.mic.error.noMic",
+        network: "chat.mic.error.network",
+        "language-not-supported": "chat.mic.error.lang",
+        "not-supported": "chat.mic.error.unsupported",
+      }
+      const key = keyMap[code] || "chat.mic.error.unknown"
+      // no-speech is informational — natural pauses; everything else is error-level.
+      if (code === "no-speech") toast(t(key))
+      else toast.error(t(key))
+    },
+  })
+
+  function handleMicClick() {
+    if (!speech.isSupported) {
+      if (!unsupportedToastShownRef.current) {
+        toast.error(t("chat.mic.error.unsupported"))
+        unsupportedToastShownRef.current = true
+      }
+      return
+    }
+    if (speech.isListening) speech.stop()
+    else speech.start()
+    // Keep parent's optional listener in the loop (e.g. orb mode in ChatScreen).
+    onMicToggle?.()
+  }
+
+  // Abort recognition if the composer becomes disabled (orb thinking)
+  // so a late final doesn't land in a textarea the user can't see.
+  useEffect(() => {
+    if (disabled && speech.isListening) speech.abort()
+  }, [disabled, speech])
 
   // auto-resize
   useEffect(() => {
@@ -87,6 +159,10 @@ export function ChatComposer({
   }
 
   function handleSendClick() {
+    // Drop any in-flight dictate interim — a delayed final after the
+    // textarea has been cleared by the parent would otherwise land in
+    // the fresh empty composer.
+    if (speech.isListening) speech.abort()
     onSend?.()
     setAttachments([])
   }
@@ -248,8 +324,14 @@ export function ChatComposer({
         )}
       </AnimatePresence>
 
-      {/* Textarea */}
-      <div className="px-4 pt-4 sm:px-6 sm:pt-5">
+      {/* Textarea + live interim overlay. The overlay is aria-hidden,
+          pointer-events-none, absolutely positioned over the textarea
+          region with matching typography + padding. It uses an invisible
+          spacer the width/height of the committed `value` to push the
+          interim text to exactly where the caret sits, so words "solidify"
+          in place on isFinal. Writing interim into the textarea directly
+          would reset selection on every event and break Android IME. */}
+      <div className="relative px-4 pt-4 sm:px-6 sm:pt-5">
         <Textarea
           ref={taRef}
           value={value}
@@ -264,8 +346,19 @@ export function ChatComposer({
           spellCheck
           aria-multiline="true"
           aria-label={t("chat.placeholder")}
-          className="min-h-[56px] sm:min-h-[64px] resize-none border-0 bg-transparent dark:bg-transparent px-0 py-0 text-[16px] sm:text-base leading-7 shadow-none focus-visible:ring-0 focus-visible:border-0"
+          className="relative z-[1] min-h-[56px] sm:min-h-[64px] resize-none border-0 bg-transparent dark:bg-transparent px-0 py-0 text-[16px] sm:text-base leading-7 shadow-none focus-visible:ring-0 focus-visible:border-0"
         />
+        {speech.isListening && speech.interim && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-4 top-4 select-none whitespace-pre-wrap break-words text-[16px] leading-7 text-foreground/55 sm:inset-x-6 sm:top-5 sm:text-base"
+          >
+            <span className="invisible">
+              {value ? value + (/\s$/.test(value) ? "" : " ") : ""}
+            </span>
+            <span>{speech.interim}</span>
+          </div>
+        )}
       </div>
 
       {/* Bottom row */}
@@ -302,17 +395,41 @@ export function ChatComposer({
             <HugeiconsIcon icon={TextFontIcon} className="size-[18px]" />
           </Button>
           <Button
+            type="button"
             variant="ghost"
             size="icon"
-            onClick={onMicToggle}
-            aria-label={t("chat.mic")}
-            aria-pressed={micActive}
+            onClick={handleMicClick}
+            disabled={disabled}
+            aria-label={
+              !speech.isSupported
+                ? t("chat.mic.unsupported")
+                : speech.isListening
+                  ? t("chat.mic.stop")
+                  : t("chat.mic.start")
+            }
+            aria-pressed={speech.isListening}
+            title={!speech.isSupported ? t("chat.mic.unsupported") : undefined}
+            data-mic-state={
+              !speech.isSupported
+                ? "unsupported"
+                : speech.isListening
+                  ? "listening"
+                  : "idle"
+            }
             className={cn(
-              "size-9 rounded-full text-muted-foreground hover:text-foreground sm:size-9",
-              micActive && "bg-brand-soft/60 text-brand-deep",
+              "relative size-9 rounded-full text-muted-foreground transition-colors hover:text-foreground sm:size-9",
+              speech.isListening && "bg-brand-via/15 text-brand-deep hover:text-brand-deep",
+              !speech.isSupported &&
+                "opacity-50 cursor-not-allowed hover:text-muted-foreground",
             )}
           >
-            <HugeiconsIcon icon={Mic01Icon} className="size-[18px]" />
+            <HugeiconsIcon
+              icon={speech.isSupported ? Mic01Icon : MicOff01Icon}
+              className="relative z-[1] size-[18px]"
+            />
+            {speech.isListening && (
+              <span aria-hidden="true" className="mic-listening-pulse" />
+            )}
           </Button>
           <Button
             type="button"
