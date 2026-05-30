@@ -257,12 +257,13 @@ export function SettingsPage() {
             // floating active thumb (see TabsTrigger). A track border here would compete
             // with the thumb and read as two clashing frames.
             //
-            // p-2 (8px) gives the active thumb visible breathing room on all four
-            // sides — without it the thumb's drop shadow grazed the track edge and
-            // read as the two frames clashing. rounded-3xl keeps the corner geometry
-            // consistent: inner radius (24 − 8 = 16 px) leaves a clean 4 px gap
-            // around the thumb's 12 px corners instead of cropping them.
-            "h-auto w-full rounded-3xl bg-muted/60 p-2",
+            // py-2 px-0: vertical breathing room around the thumb but NO horizontal
+            // padding, so the first/last tab sits flush with the track's outer ends.
+            // Without this an inactive sliver of track was visible to the left of the
+            // first tab and to the right of the last. The first/last trigger pick up
+            // a matching rounded-l-3xl / rounded-r-3xl so the outer button corners
+            // hug the track's rounded ends instead of poking out of the curve.
+            "h-auto w-full rounded-3xl bg-muted/60 px-0 py-2",
             "shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)]",
             "flex gap-1",
             "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
@@ -287,7 +288,12 @@ export function SettingsPage() {
                 // label appears below the track (see ActiveTabLabel) so the
                 // user always sees which page they're on. sm:+ shows icon +
                 // inline label like before.
-                "group relative flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border-0 bg-transparent px-2 text-[13px] font-medium whitespace-nowrap sm:h-10 sm:px-3",
+                //
+                // first:rounded-l-3xl / last:rounded-r-3xl — the first/last button's
+                // outer corners match the track's outer corner (24 px) so the active
+                // thumb fills the track's rounded "ear" cleanly with no gray sliver
+                // between thumb and track edge. Middle tabs keep rounded-xl (12 px).
+                "group relative flex h-11 flex-1 items-center justify-center gap-2 rounded-xl first:rounded-l-3xl last:rounded-r-3xl border-0 bg-transparent px-2 text-[13px] font-medium whitespace-nowrap sm:h-10 sm:px-3",
                 "text-muted-foreground transition-all duration-200 ease-out",
                 "hover:text-foreground hover:bg-foreground/[0.04]",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-0",
@@ -297,7 +303,11 @@ export function SettingsPage() {
                 // page < track fill < thumb fill.
                 "data-[state=active]:bg-background data-[state=active]:text-foreground",
                 "data-[state=active]:shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_12px_rgba(0,0,0,0.06)]",
-                "dark:data-[state=active]:bg-white/[0.12] dark:data-[state=active]:text-white",
+                // Dark active thumb must be OPAQUE — a translucent white/0.12 let
+                // the track's inset shadow bleed through and read as a line drawn
+                // across the middle of the active button. neutral-800 (#262626) is
+                // the opaque equivalent of white/0.12 over the dark page background.
+                "dark:data-[state=active]:bg-neutral-800 dark:data-[state=active]:text-white",
                 "dark:data-[state=active]:shadow-[0_1px_0_rgba(255,255,255,0.1)_inset,0_2px_8px_rgba(0,0,0,0.45)]",
               )}
             >
