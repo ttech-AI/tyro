@@ -20,7 +20,7 @@ For Dataverse work (see Dataverse backend section), Python scripts live in `scri
 
 ## Stack & conventions
 
-- **Vite 8 + React 19** with `@vitejs/plugin-react` (Oxc-based). React Compiler intentionally **not** enabled.
+- **Vite 8 + React 19** with `@vitejs/plugin-react` (Oxc-based). React Compiler intentionally **not** enabled — memoize hot paths manually with `useCallback` / `useMemo` (the codebase already does this in `ConfigProvider`, `NavApps`, `ChatScreen`). Don't enable the compiler without first auditing hooks-rules violations across the provider stack.
 - **JavaScript + JSX, not TypeScript.** `components.json` has `"tsx": false`, `jsconfig.json` (not `tsconfig.json`) drives `@/*` → `./src`. When adding shadcn components, scaffold `.jsx`. Path alias mirrored in `vite.config.js` and `jsconfig.json` — keep both in sync.
 - **Tailwind CSS v4** via `@tailwindcss/vite`. No JS config — theme tokens live in `src/index.css` under `@theme inline { … }`. Add new design tokens there, not in a JS config.
 - **shadcn/ui** configured for `radix-mira` style with `baseColor: mist` and **hugeicons** as the icon library (`components.json`). Run `npx shadcn@latest add <component>` to scaffold — components land in `src/components/ui/`. shadcn MCP and Context7 MCP are registered in `.mcp.json` for in-conversation lookup.
@@ -247,8 +247,8 @@ When adding new asset paths that aren't bundled by Vite (rare), reference them a
 
 - **Dataverse skills** (in `.claude/plugins/.../dataverse/`): `dv-connect`, `dv-metadata`, `dv-data`, `dv-query`, `dv-solution`, `dv-admin`, `dv-security`, `dv-overview`. Skill conventions enforce SDK-over-Web-API, environment-first metadata, solution-pull-after-changes. The dv-metadata skill's "Phased Creation" rule (15–30s between table → key → lookup) matters when scripting bulk schema changes.
 - The `tyro-interactive-login` skill describes login-page patterns (cinematic intros, MSAL, scene types) — relevant when wiring real MSAL auth.
-- A demo reference project at `C:\Users\Cenk\Desktop\demo\` (TYROForecast) is useful for cross-checking patterns (sidebar LED-strip active indicator was lifted from there).
-- Persistent project memories at `C:\Users\Cenk\.claude\projects\c--Users-Cenk-Desktop-TYRO-AI-Web-App\memory\`. The bilingual i18n rule and UI library choices are enforced there — don't weaken without updating the memory.
+- A sibling reference project (TYROForecast demo) on the same workstation provided some patterns — e.g. the sidebar LED-strip active indicator. If you don't have access to it locally, fall back to what's already in this repo.
+- Persistent project memories live under the Claude Code session memory directory (auto-loaded on session start). The bilingual i18n rule and UI library choices are enforced there — don't weaken them without also updating memory.
 
 ## Platform notes
 
