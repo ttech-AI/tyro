@@ -54,8 +54,6 @@ export function ChatComposer({
   const { t } = useLocale()
   const taRef = useRef(null)
   const fileInputRef = useRef(null)
-  const beamHostRef = useRef(null)
-  const keystrokesRef = useRef([])
   const [attachments, setAttachments] = useState([])
   const [richTextOpen, setRichTextOpen] = useState(false)
 
@@ -78,43 +76,6 @@ export function ChatComposer({
     if (!isTouch) taRef.current?.focus()
   }, [])
 
-  // Typing-speed → beam rotation. While the textarea is focused, we sample
-  // keystrokes in a sliding 1.5 s window and update the wrapper's
-  // `--beam-duration` custom property. Idle/tap-only = 8 s/rotation
-  // (calm). Fast typing (~5 keystrokes/sec) speeds up to ~2 s/rotation.
-  // Decays naturally back to idle when typing pauses since old timestamps
-  // fall out of the window on the next tick.
-  useEffect(() => {
-    const ta = taRef.current
-    const beam = beamHostRef.current
-    if (!ta || !beam) return
-
-    function recompute() {
-      const now = Date.now()
-      keystrokesRef.current = keystrokesRef.current.filter((t) => now - t < 1500)
-      const kps = keystrokesRef.current.length / 1.5
-      // 0 kps → 8 s, 5 kps → ~2 s. Clamp to [2 s, 8 s].
-      const seconds = Math.max(2, Math.min(8, 8 - kps * 1.2))
-      beam.style.setProperty("--beam-duration", seconds.toFixed(2) + "s")
-    }
-
-    let tick
-    function onFocus() {
-      tick = setInterval(recompute, 220)
-    }
-    function onBlur() {
-      clearInterval(tick)
-      keystrokesRef.current = []
-      beam.style.setProperty("--beam-duration", "8s")
-    }
-    ta.addEventListener("focus", onFocus)
-    ta.addEventListener("blur", onBlur)
-    return () => {
-      ta.removeEventListener("focus", onFocus)
-      ta.removeEventListener("blur", onBlur)
-      clearInterval(tick)
-    }
-  }, [])
 
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -201,10 +162,7 @@ export function ChatComposer({
     // ::before sits at inset:-2px (OUTSIDE the inner border), so any
     // overflow clip here would slice it off. The outer wrapper is also
     // where the brand-halo box-shadow lives.
-    <div
-      ref={beamHostRef}
-      className={cn("composer-beam relative w-full rounded-2xl", className)}
-    >
+    <div className={cn("composer-beam relative w-full rounded-2xl", className)}>
       {/* INNER chrome — keeps overflow:hidden so the rich-text toolbar
           and attachments tray AnimatePresence height tweens don't jut
           out of the rounded corners. */}
@@ -295,13 +253,7 @@ export function ChatComposer({
         <Textarea
           ref={taRef}
           value={value}
-          onChange={(e) => {
-            // Push timestamp so the typing-speed → beam-rotation loop
-            // (see the useEffect above) can compute keystrokes-per-second
-            // and accelerate the orbit on fast typing.
-            keystrokesRef.current.push(Date.now())
-            onChange?.(e.target.value)
-          }}
+          onChange={(e) => onChange?.(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={t("chat.placeholder")}
           rows={2}

@@ -59,12 +59,15 @@ export function DateTimePill({ className = "" }) {
           </div>
         </button>
       </TooltipTrigger>
-      <TooltipContent side="bottom" sideOffset={6} className="text-center">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
+      <TooltipContent side="bottom" sideOffset={6} className="flex-col items-center gap-0 px-3 py-2 text-center">
+        {/* Tooltip primitive paints bg-foreground + text-background, so use
+            text-background (NOT text-foreground) — otherwise the text is
+            invisible against the matching bg. */}
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-background">
           {weekdayLong}
         </div>
-        <div className="mt-0.5 text-xs text-foreground/85">{fullDate}</div>
-        <div className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">{time}</div>
+        <div className="mt-0.5 text-xs text-background/90">{fullDate}</div>
+        <div className="mt-0.5 text-[11px] tabular-nums text-background/65">{time}</div>
       </TooltipContent>
     </Tooltip>
   )
