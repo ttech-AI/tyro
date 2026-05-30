@@ -644,6 +644,83 @@
   }
 }
 
+/* ── Composer focus beam ─────────────────────────────────────────────
+   A thin gradient "comet" orbits the composer's border when the user
+   focuses the textarea or attachments tray. Color derives from the
+   active palette's three brand stops (--brand-from/via/to), so the
+   effect inherits Insta on login, Ocean Breeze on default, whatever
+   the user picks. Used to communicate "this is the active surface,
+   write here" without yelling. Pairs with a soft outer halo via
+   box-shadow so the surface lifts a hair off the background. */
+
+@property --beam-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.composer-beam {
+  position: relative;
+  transition: box-shadow 240ms ease-out;
+}
+
+/* The beam itself is a rotating conic gradient masked to the border ring
+   via `mask-composite: exclude` (the inner area gets cut, leaving only a
+   1.5 px stroke around the rounded rectangle). It only paints when the
+   composer is :focus-within. */
+.composer-beam::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--beam-angle),
+    transparent 0deg,
+    transparent 250deg,
+    var(--brand-from) 280deg,
+    var(--brand-via) 320deg,
+    var(--brand-to) 350deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 320ms ease-out;
+}
+
+.composer-beam:focus-within::before {
+  opacity: 1;
+  animation: composer-beam-spin 3.4s linear infinite;
+}
+
+/* Soft palette-tinted halo under the composer when focused. Two layers:
+   a 1 px ring at low opacity (replaces the muted neutral border feel
+   with a brand-aware outline) and a wider drop-glow so the surface
+   reads as "raised". */
+.composer-beam:focus-within {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--brand-via) 28%, transparent),
+    0 10px 32px -10px color-mix(in oklab, var(--brand-via) 32%, transparent);
+}
+
+@keyframes composer-beam-spin {
+  to {
+    --beam-angle: 360deg;
+  }
+}
+
+/* Respect reduced motion — keep the focus ring + halo, kill the orbit. */
+@media (prefers-reduced-motion: reduce) {
+  .composer-beam:focus-within::before {
+    animation: none;
+  }
+}
+
 /* ── Scrollbars — premium chrome treatment ─────────────────────────
    8 px pill thumb on a transparent track, color-mixed from --foreground
    so it inherits light/dark theme and palette swaps automatically.

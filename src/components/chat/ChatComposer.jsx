@@ -159,7 +159,11 @@ export function ChatComposer({
   return (
     <div
       className={cn(
-        "w-full overflow-hidden rounded-2xl border border-border bg-card shadow-sm",
+        // composer-beam triggers on :focus-within — a rotating
+        // brand-palette comet sweeps the border + soft halo lifts the
+        // surface. Communicates "this is the active write target"
+        // without a loud focus ring. See src/index.css.
+        "composer-beam w-full overflow-hidden rounded-2xl border border-border bg-card shadow-sm",
         className,
       )}
     >
