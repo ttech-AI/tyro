@@ -315,10 +315,15 @@ export function ChatScreen({ onReset, initialAgent }) {
         </AnimatePresence>
       </div>
 
-      {/* Row 3 — composer. pb-safe pushes the touch surface above the home
-          indicator on iPhone X+; bg solid at the bottom so the home indicator
-          doesn't bleed through the gradient. */}
-      <div className="shrink-0 bg-background pb-safe pt-2 sm:pt-3">
+      {/* Row 3 — composer. The padding-bottom uses an inline max() so even
+          in a browser tab (insets=0) the touch surface has a small breathing
+          gap, while in PWA standalone the home-indicator area is fully
+          cleared. Solid bg at the bottom keeps the indicator from bleeding
+          through the gradient. */}
+      <div
+        className="shrink-0 bg-background pt-2 sm:pt-3"
+        style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}
+      >
         <ChatComposer
           value={input}
           onChange={setInput}

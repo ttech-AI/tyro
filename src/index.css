@@ -649,20 +649,25 @@
    bottom-sticky chrome (composer, footer, toaster) and any 32–40 px
    icon button that's reachable on a touch device. */
 @layer utilities {
-  /* Vertical safe-area padding (notch / home indicator). Use on
-     elements that sit at the top or bottom edge of the viewport. */
+  /* Vertical safe-area padding (notch / home indicator). Pure env() with
+     NO minimum — browser tabs (insets=0) get zero padding, only PWA
+     standalone gets the actual indicator/notch height. Previous max()
+     with 0.5rem minimum was leaving a visible white strip in the browser
+     where there was no system chrome to push past. For sticky chrome
+     that needs a base padding even in browser, combine .pb-safe with a
+     regular py-X class on the same element. */
   .pb-safe {
-    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .pt-safe {
-    padding-top: max(env(safe-area-inset-top), 0.5rem);
+    padding-top: env(safe-area-inset-top);
   }
   /* Landscape safe-area lateral padding (Dynamic Island, edge sensors). */
   .pl-safe {
-    padding-left: max(env(safe-area-inset-left), 0px);
+    padding-left: env(safe-area-inset-left);
   }
   .pr-safe {
-    padding-right: max(env(safe-area-inset-right), 0px);
+    padding-right: env(safe-area-inset-right);
   }
   /* Hit-area expander — keep the icon visually 16-20 px but make the
      interactive box >= 44 px on coarse pointers (Apple HIG / WCAG 2.5.5). */

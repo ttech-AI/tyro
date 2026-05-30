@@ -256,17 +256,26 @@ export function LoginPage() {
     <div
       onMouseMove={triggerListening}
       className={cn(
-        "relative flex h-[100svh] w-full flex-col overflow-hidden",
-        // PWA standalone safe-area: status bar (Dynamic Island / notch)
-        // would cover the top brand row, home indicator would clip the
-        // footer copyright. Browser-tab visits get insets=0 so the layout
-        // is identical there. Total height stays 100svh; the safe-area
-        // is applied as inner padding via Tailwind utilities defined in
-        // src/index.css.
-        "pt-safe pb-safe pl-safe pr-safe",
+        // 100dvh tracks the live viewport (PWA standalone = full screen,
+        // browser tab = current chrome state). 100svh was the cause of
+        // the bottom white strip in the browser: the page sized to the
+        // SMALLEST viewport (URL bar visible) even when the URL bar was
+        // collapsed, leaving an empty band beneath the footer.
+        "relative flex h-[100dvh] w-full flex-col overflow-hidden",
         isDark ? "bg-[#0c0c0c] text-[#D7E2EA]" : "bg-[#fafafa] text-[#1a1a1a]",
       )}
-      style={{ fontFamily: '"Inter Variable", "Inter", system-ui, sans-serif' }}
+      style={{
+        fontFamily: '"Inter Variable", "Inter", system-ui, sans-serif',
+        // PWA standalone safe-area: insets push content out of the status
+        // bar (Dynamic Island / notch) and home indicator zones. Inline
+        // env() guarantees the values land — Tailwind arbitrary-value
+        // utilities with env() can occasionally be optimized away.
+        // Browser tabs evaluate env() to 0, so layout is identical there.
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
+      }}
     >
       {/* Diagonal grain backdrop */}
       <div
