@@ -126,10 +126,24 @@ export function LoginPage() {
     return () => mql.removeEventListener("change", update)
   }, [])
 
-  // ---------- Voice greeting: play one random file 2s after mount ----------
+  // ---------- Voice greeting: play one random file ~2s after mount ----------
+  // Browsers (Chrome / Safari / Firefox) block autoplay until the page has
+  // received a "user gesture". The Media Engagement Index makes the bar
+  // somewhat fuzzy — repeat visitors who've played audio here before usually
+  // pass it, fresh visitors don't. That mismatch is what caused playback to
+  // *sometimes* fire from the 2s timer and sometimes not.
+  //
+  // Fix: race the 2s timer against the first real gesture (pointerdown /
+  // keydown / touchstart). Whichever fires first unlocks playback. The
+  // existing onMouseMove on the root drives the listening state but does
+  // NOT count as a gesture per the spec, so we have to listen explicitly.
   useEffect(() => {
     if (muted) return
-    const playTimer = setTimeout(() => {
+    let cancelled = false
+    const removers = []
+
+    const tryPlay = () => {
+      if (cancelled || audioRef.current) return
       const pick = VOICE_FILES[Math.floor(Math.random() * VOICE_FILES.length)]
       const src = import.meta.env.BASE_URL + pick
       const audio = new Audio(src)
@@ -139,13 +153,38 @@ export function LoginPage() {
       audio.addEventListener("pause", () => setIsSpeaking(false))
       audio
         .play()
-        .then(() => setIsSpeaking(true))
-        .catch(() => {
-          // Autoplay blocked — fail silently, orb stays in idle/listening
+        .then(() => {
+          if (cancelled) {
+            audio.pause()
+            return
+          }
+          setIsSpeaking(true)
+          // Successful play — drop the gesture-fallback listeners so they
+          // don't fire on every subsequent click.
+          removers.splice(0).forEach((fn) => fn())
         })
-    }, 2000)
+        .catch(() => {
+          // Blocked (autoplay policy or file load error). Null the ref so
+          // the next gesture can retry with a fresh Audio instance.
+          audioRef.current = null
+        })
+    }
+
+    const playTimer = setTimeout(tryPlay, 2000)
+
+    // pointermove / mousemove do NOT count as a gesture per the autoplay
+    // spec. Only these three reliably unlock playback across all browsers.
+    const events = ["pointerdown", "keydown", "touchstart"]
+    events.forEach((evt) => {
+      const handler = () => tryPlay()
+      window.addEventListener(evt, handler, { passive: true })
+      removers.push(() => window.removeEventListener(evt, handler))
+    })
+
     return () => {
+      cancelled = true
       clearTimeout(playTimer)
+      removers.splice(0).forEach((fn) => fn())
       if (audioRef.current) {
         audioRef.current.pause()
         audioRef.current.src = ""
