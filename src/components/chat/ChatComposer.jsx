@@ -4,7 +4,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Attachment01Icon,
   Mic01Icon,
-  ArrowUp01Icon,
+  ArrowRight01Icon,
   TextBoldIcon,
   TextItalicIcon,
   TextUnderlineIcon,
@@ -54,6 +54,8 @@ export function ChatComposer({
   const { t } = useLocale()
   const taRef = useRef(null)
   const fileInputRef = useRef(null)
+  const beamHostRef = useRef(null)
+  const keystrokesRef = useRef([])
   const [attachments, setAttachments] = useState([])
   const [richTextOpen, setRichTextOpen] = useState(false)
 
@@ -74,6 +76,44 @@ export function ChatComposer({
     if (typeof window === "undefined") return
     const isTouch = "ontouchstart" in window || !window.matchMedia("(pointer: fine)").matches
     if (!isTouch) taRef.current?.focus()
+  }, [])
+
+  // Typing-speed → beam rotation. While the textarea is focused, we sample
+  // keystrokes in a sliding 1.5 s window and update the wrapper's
+  // `--beam-duration` custom property. Idle/tap-only = 8 s/rotation
+  // (calm). Fast typing (~5 keystrokes/sec) speeds up to ~2 s/rotation.
+  // Decays naturally back to idle when typing pauses since old timestamps
+  // fall out of the window on the next tick.
+  useEffect(() => {
+    const ta = taRef.current
+    const beam = beamHostRef.current
+    if (!ta || !beam) return
+
+    function recompute() {
+      const now = Date.now()
+      keystrokesRef.current = keystrokesRef.current.filter((t) => now - t < 1500)
+      const kps = keystrokesRef.current.length / 1.5
+      // 0 kps → 8 s, 5 kps → ~2 s. Clamp to [2 s, 8 s].
+      const seconds = Math.max(2, Math.min(8, 8 - kps * 1.2))
+      beam.style.setProperty("--beam-duration", seconds.toFixed(2) + "s")
+    }
+
+    let tick
+    function onFocus() {
+      tick = setInterval(recompute, 220)
+    }
+    function onBlur() {
+      clearInterval(tick)
+      keystrokesRef.current = []
+      beam.style.setProperty("--beam-duration", "8s")
+    }
+    ta.addEventListener("focus", onFocus)
+    ta.addEventListener("blur", onBlur)
+    return () => {
+      ta.removeEventListener("focus", onFocus)
+      ta.removeEventListener("blur", onBlur)
+      clearInterval(tick)
+    }
   }, [])
 
   function handleKeyDown(e) {
@@ -157,16 +197,20 @@ export function ChatComposer({
   const hasContent = value.trim().length > 0 || attachments.length > 0
 
   return (
+    // OUTER beam host. Must NOT have overflow:hidden — the beam's
+    // ::before sits at inset:-2px (OUTSIDE the inner border), so any
+    // overflow clip here would slice it off. The outer wrapper is also
+    // where the brand-halo box-shadow lives.
     <div
-      className={cn(
-        // composer-beam triggers on :focus-within — a rotating
-        // brand-palette comet sweeps the border + soft halo lifts the
-        // surface. Communicates "this is the active write target"
-        // without a loud focus ring. See src/index.css.
-        "composer-beam w-full overflow-hidden rounded-2xl border border-border bg-card shadow-sm",
-        className,
-      )}
+      ref={beamHostRef}
+      className={cn("composer-beam relative w-full rounded-2xl", className)}
     >
+      {/* INNER chrome — keeps overflow:hidden so the rich-text toolbar
+          and attachments tray AnimatePresence height tweens don't jut
+          out of the rounded corners. */}
+      <div
+        className="w-full overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
+      >
       {/* Rich text toolbar */}
       <AnimatePresence initial={false}>
         {richTextOpen && (
@@ -251,7 +295,13 @@ export function ChatComposer({
         <Textarea
           ref={taRef}
           value={value}
-          onChange={(e) => onChange?.(e.target.value)}
+          onChange={(e) => {
+            // Push timestamp so the typing-speed → beam-rotation loop
+            // (see the useEffect above) can compute keystrokes-per-second
+            // and accelerate the orbit on fast typing.
+            keystrokesRef.current.push(Date.now())
+            onChange?.(e.target.value)
+          }}
           onKeyDown={handleKeyDown}
           placeholder={t("chat.placeholder")}
           rows={2}
@@ -274,10 +324,10 @@ export function ChatComposer({
             variant="ghost"
             size="icon"
             onClick={openFilePicker}
-            className="size-10 text-muted-foreground hover:text-foreground"
+            className="size-9 text-muted-foreground hover:text-foreground"
             aria-label={t("chat.attach")}
           >
-            <HugeiconsIcon icon={Attachment01Icon} className="size-5" />
+            <HugeiconsIcon icon={Attachment01Icon} className="size-[18px]" />
           </Button>
           <AgentSelect value={agent} onChange={onAgentChange} />
         </div>
@@ -293,11 +343,11 @@ export function ChatComposer({
             aria-label={t("chat.format.toggle")}
             aria-pressed={richTextOpen}
             className={cn(
-              "hidden text-muted-foreground hover:text-foreground sm:inline-flex sm:size-10",
+              "hidden text-muted-foreground hover:text-foreground sm:inline-flex sm:size-9",
               richTextOpen && "bg-brand-soft/60 text-brand-deep",
             )}
           >
-            <HugeiconsIcon icon={TextFontIcon} className="size-5" />
+            <HugeiconsIcon icon={TextFontIcon} className="size-[18px]" />
           </Button>
           <Button
             variant="ghost"
@@ -306,11 +356,11 @@ export function ChatComposer({
             aria-label={t("chat.mic")}
             aria-pressed={micActive}
             className={cn(
-              "size-10 rounded-full text-muted-foreground hover:text-foreground sm:size-10",
+              "size-9 rounded-full text-muted-foreground hover:text-foreground sm:size-9",
               micActive && "bg-brand-soft/60 text-brand-deep",
             )}
           >
-            <HugeiconsIcon icon={Mic01Icon} className="size-5" />
+            <HugeiconsIcon icon={Mic01Icon} className="size-[18px]" />
           </Button>
           <Button
             type="button"
@@ -323,7 +373,7 @@ export function ChatComposer({
               "disabled:opacity-40 disabled:cursor-not-allowed",
             )}
           >
-            <HugeiconsIcon icon={ArrowUp01Icon} className="size-5" />
+            <HugeiconsIcon icon={ArrowRight01Icon} className="size-5" />
           </Button>
         </div>
       </div>
@@ -336,6 +386,7 @@ export function ChatComposer({
         className="hidden"
         onChange={handleFiles}
       />
+      </div>
     </div>
   )
 }

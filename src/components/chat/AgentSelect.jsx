@@ -19,7 +19,7 @@ export function AgentSelect({ value, onChange }) {
         <Button
           variant="outline"
           size="sm"
-          className="h-10 gap-2 rounded-full border-border/70 bg-background px-4 text-sm font-medium"
+          className="h-9 gap-2 rounded-full border-border/70 bg-background px-3.5 text-sm font-medium"
         >
           <span className="grid size-4 shrink-0 place-items-center overflow-hidden rounded-sm">
             <IconOrLogo
