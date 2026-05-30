@@ -22,6 +22,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { IconOrLogo } from "@/components/common/IconOrLogo"
 import { useLocale } from "@/hooks/useLocale"
 import { useConfig } from "@/hooks/useConfig"
@@ -41,19 +42,28 @@ function AppItem({ app }) {
   }
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild tooltip={app.name}>
-        <a href={href} target="_blank" rel="noopener noreferrer" onClick={closeOnTap}>
-          <span className="grid size-5 shrink-0 place-items-center overflow-hidden rounded-[5px]">
-            <IconOrLogo
-              iconName={app.iconName}
-              logo={app.logo}
-              strokeWidth={1.6}
-              className="size-5"
-            />
-          </span>
-          <span>{app.name}</span>
-        </a>
-      </SidebarMenuButton>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <SidebarMenuButton asChild>
+            <a href={href} target="_blank" rel="noopener noreferrer" onClick={closeOnTap}>
+              <span className="grid size-5 shrink-0 place-items-center overflow-hidden rounded-[5px]">
+                <IconOrLogo
+                  iconName={app.iconName}
+                  logo={app.logo}
+                  strokeWidth={1.6}
+                  className="size-5"
+                />
+              </span>
+              <span>{app.name}</span>
+            </a>
+          </SidebarMenuButton>
+        </TooltipTrigger>
+        {app.description && !isMobile && (
+          <TooltipContent side="right" sideOffset={12} className="max-w-xs">
+            <p className="leading-relaxed text-background">{app.description}</p>
+          </TooltipContent>
+        )}
+      </Tooltip>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <SidebarMenuAction showOnHover className="rounded-sm data-[state=open]:bg-accent">
