@@ -304,7 +304,10 @@ export function LoginPage() {
       {/* MAIN STAGE (fills remaining viewport between header and footer) */}
       <main
         className={cn(
-          "relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-6 sm:px-10 sm:py-10",
+          "relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center px-4 sm:px-10",
+          // Bias the centered column upward (extra bottom padding) so the tagline + CTA
+          // don't crowd the footer. Short viewports stay near-symmetric to avoid clipping.
+          isShortHeight ? "pt-4 pb-8 sm:pt-6 sm:pb-12" : "pt-6 pb-20 sm:pt-8 sm:pb-28",
         )}
       >
         {/* Stage: headline behind, orb on top */}
@@ -628,7 +631,7 @@ function CtaButton({ onClick, disabled, label, isDark }) {
       whileTap={!disabled ? { scale: 0.97 } : undefined}
       transition={{ type: "spring", stiffness: 400, damping: 22 }}
       className={cn(
-        "group relative inline-flex items-center gap-6 overflow-hidden border px-8 py-4 text-[13px] font-semibold uppercase tracking-[0.18em] transition-all duration-300",
+        "group relative inline-flex items-center gap-6 overflow-hidden rounded-lg border px-8 py-4 text-[13px] font-semibold uppercase tracking-[0.18em] transition-all duration-300",
         isDark
           ? "border-white/20 bg-transparent text-white hover:border-transparent"
           : "border-[#1a1a1a]/25 bg-transparent text-[#1a1a1a] hover:border-transparent hover:text-white",
@@ -645,7 +648,7 @@ function CtaButton({ onClick, disabled, label, isDark }) {
       </span>
       <span
         className={cn(
-          "relative z-10 grid size-8 shrink-0 place-items-center border transition-all duration-300",
+          "relative z-10 grid size-8 shrink-0 place-items-center rounded-md border transition-all duration-300",
           isDark ? "border-white/30 group-hover:border-white/70" : "border-[#1a1a1a]/30 group-hover:border-white/70",
           "group-hover:bg-white/[0.12]",
         )}
