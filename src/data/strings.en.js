@@ -356,6 +356,7 @@ export const strings = {
   "login.connectingTitle": "Connecting to TYROVERSE",
   "login.audio.mute": "Mute audio",
   "login.audio.unmute": "Unmute audio",
+  "login.audio.replay": "Replay welcome audio",
 
   "settings.toast.saved": "{name} saved",
   "settings.toast.deleted": "{name} deleted",

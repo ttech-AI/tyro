@@ -356,6 +356,7 @@ export const strings = {
   "login.connectingTitle": "TYROVERSE'e bağlanılıyor",
   "login.audio.mute": "Sesi kapat",
   "login.audio.unmute": "Sesi aç",
+  "login.audio.replay": "Karşılama sesini tekrar oynat",
 
   "settings.toast.saved": "{name} kaydedildi",
   "settings.toast.deleted": "{name} silindi",

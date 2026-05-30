@@ -79,6 +79,9 @@ export function LoginPage() {
   const [speakingLevel, setSpeakingLevel] = useState(0)
   const audioRef = useRef(null)
   const speakingTimer = useRef(null)
+  // Latest-value ref for playGreeting so the mount-time effect (deps:[])
+  // can call the current version without going stale.
+  const playGreetingRef = useRef(() => {})
 
   const isDark = theme === "dark"
   const isSpinning = phase === "connecting" || phase === "dissolving"
@@ -126,12 +129,47 @@ export function LoginPage() {
     return () => mql.removeEventListener("change", update)
   }, [])
 
-  // ---------- Voice greeting: play one random file ~2s after mount ----------
+  // Restart-on-call greeting playback. Used by the orb click handler AND
+  // by the mount-time effect below (via playGreetingRef so the effect can
+  // stay deps:[] and call the latest version). Tears down any in-flight
+  // playback first so a click during the greeting jumps cleanly to a fresh
+  // start instead of layering on top of itself.
+  function playGreeting() {
+    if (muted || isSpinning) return
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.src = ""
+      audioRef.current = null
+    }
+    setIsSpeaking(false)
+    const pick = VOICE_FILES[Math.floor(Math.random() * VOICE_FILES.length)]
+    const src = import.meta.env.BASE_URL + pick
+    const audio = new Audio(src)
+    audio.preload = "auto"
+    audioRef.current = audio
+    audio.addEventListener("ended", () => setIsSpeaking(false))
+    audio.addEventListener("pause", () => setIsSpeaking(false))
+    audio
+      .play()
+      .then(() => setIsSpeaking(true))
+      .catch(() => {
+        // Blocked (autoplay policy / file error). Null the ref so a later
+        // gesture or orb click can retry with a fresh Audio instance.
+        audioRef.current = null
+      })
+  }
+  // Mirror the latest playGreeting into a ref so the mount-time effect
+  // (deps:[]) reaches the current closure instead of a stale one.
+  useEffect(() => {
+    playGreetingRef.current = playGreeting
+  })
+
+  // ---------- Mount-time greeting: race 2s timer against first gesture ----------
   // Browsers (Chrome / Safari / Firefox) block autoplay until the page has
   // received a "user gesture". The Media Engagement Index makes the bar
-  // somewhat fuzzy — repeat visitors who've played audio here before usually
-  // pass it, fresh visitors don't. That mismatch is what caused playback to
-  // *sometimes* fire from the 2s timer and sometimes not.
+  // fuzzy — repeat visitors who've played audio here before usually pass
+  // the 2s timer, fresh visitors don't. That mismatch caused playback to
+  // *sometimes* fire from the timer and sometimes not.
   //
   // Fix: race the 2s timer against the first real gesture (pointerdown /
   // keydown / touchstart). Whichever fires first unlocks playback. The
@@ -139,50 +177,28 @@ export function LoginPage() {
   // NOT count as a gesture per the spec, so we have to listen explicitly.
   useEffect(() => {
     if (muted) return
-    let cancelled = false
+    let fired = false
     const removers = []
 
-    const tryPlay = () => {
-      if (cancelled || audioRef.current) return
-      const pick = VOICE_FILES[Math.floor(Math.random() * VOICE_FILES.length)]
-      const src = import.meta.env.BASE_URL + pick
-      const audio = new Audio(src)
-      audio.preload = "auto"
-      audioRef.current = audio
-      audio.addEventListener("ended", () => setIsSpeaking(false))
-      audio.addEventListener("pause", () => setIsSpeaking(false))
-      audio
-        .play()
-        .then(() => {
-          if (cancelled) {
-            audio.pause()
-            return
-          }
-          setIsSpeaking(true)
-          // Successful play — drop the gesture-fallback listeners so they
-          // don't fire on every subsequent click.
-          removers.splice(0).forEach((fn) => fn())
-        })
-        .catch(() => {
-          // Blocked (autoplay policy or file load error). Null the ref so
-          // the next gesture can retry with a fresh Audio instance.
-          audioRef.current = null
-        })
+    const fire = () => {
+      if (fired) return
+      fired = true
+      playGreetingRef.current()
+      // First play attempted (success or fail). Drop the gesture listeners
+      // so later clicks/keypresses don't re-trigger the mount-time path —
+      // orb clicks are the only intentional replay surface from here on.
+      removers.splice(0).forEach((fn) => fn())
     }
 
-    const playTimer = setTimeout(tryPlay, 2000)
-
-    // pointermove / mousemove do NOT count as a gesture per the autoplay
-    // spec. Only these three reliably unlock playback across all browsers.
+    const playTimer = setTimeout(fire, 2000)
     const events = ["pointerdown", "keydown", "touchstart"]
     events.forEach((evt) => {
-      const handler = () => tryPlay()
+      const handler = () => fire()
       window.addEventListener(evt, handler, { passive: true })
       removers.push(() => window.removeEventListener(evt, handler))
     })
 
     return () => {
-      cancelled = true
       clearTimeout(playTimer)
       removers.splice(0).forEach((fn) => fn())
       if (audioRef.current) {
@@ -456,7 +472,21 @@ export function LoginPage() {
             initial={{ opacity: 0, scale: 0.7, filter: "blur(20px)" }}
             animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
             transition={{ duration: 1.2, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-10"
+            onClick={playGreeting}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                playGreeting()
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label={t("login.audio.replay")}
+            className={cn(
+              "relative z-10 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40",
+              !isSpinning && !muted && "cursor-pointer",
+            )}
+            style={{ WebkitTapHighlightColor: "transparent" }}
           >
             {/* Scale wrapper — the orb doesn't rotate, doesn't wobble, doesn't
                 have satellites. Just sits in speaking-mode visual and grows
