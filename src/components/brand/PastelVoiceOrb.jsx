@@ -45,7 +45,12 @@ export function PastelVoiceOrb({
   const motionBoost = isThinking ? 1.25 : isSpeaking ? 1.15 : isListening ? 1.05 : 0.9
   const wrapperSize = Math.round(size * 1.78)
   const auraSize = Math.round(size * 1.45)
-  const auraBlur = Math.max(22, Math.round(size * 0.13))
+  // Aura blur scales linearly with size. Previous `max(22, size*0.13)` set a
+  // 22 px floor, which on a 32 px header orb meant the aura (46 px) was 48 %
+  // blurred — the colors smeared into a pale wash. Reduced floor to 6 px so
+  // small header orbs keep their saturation; the big login/dashboard orbs
+  // (size ≥ 170) hit the linear value (22+ px) so they're unaffected.
+  const auraBlur = Math.max(6, Math.round(size * 0.13))
 
   // Outer aura animation
   const auraAnim = isActive

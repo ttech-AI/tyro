@@ -224,6 +224,10 @@ export const strings = {
   "chat.reset": "Yeni sohbet başlat",
   "chat.scrollToLatest": "En son mesaja in",
   "chat.newMessagePill": "{count} yeni mesaj",
+  "chat.status.thinking": "Yazıyor…",
+  "chat.message.copy": "Mesajı kopyala",
+  "chat.message.copied": "Kopyalandı",
+  "chat.message.copyFailed": "Kopyalanamadı",
 
   // App Launcher (Dashboard)
   "launcher.title": "TYRO AI Platformu",

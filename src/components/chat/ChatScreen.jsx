@@ -244,21 +244,26 @@ export function ChatScreen({ onReset, initialAgent }) {
     // min-h-0, 10+ messages push this column past 100dvh and the WHOLE
     // page starts scrolling — the chat header and composer disappear.
     <div className="mx-auto flex h-full min-h-0 w-full max-w-4xl flex-1 flex-col px-3 pt-2 sm:px-4 sm:pt-3">
-      {/* Row 1 — header */}
+      {/* Row 1 — header. Mini orb on the left mirrors the modes the big
+          orb plays (idle / listening / thinking / speaking) so the user
+          gets a visual "agent state" cue. Below the agent name we show
+          the agent's description by default, swapping in "Yazıyor…" when
+          the orb is in thinking mode so the user gets a clear in-progress
+          signal. */}
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 pb-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <PastelVoiceOrb state={orbState} level={effectiveLevel} size={32} />
+        <div className="flex min-w-0 items-center gap-2.5">
+          <PastelVoiceOrb state={orbState} level={effectiveLevel} size={40} />
           <div className="flex min-w-0 flex-col leading-tight">
             <span className="truncate text-sm font-medium">{activeAgent?.name}</span>
-            <span className="text-[10px] text-muted-foreground">
-              {orbState === "thinking"
-                ? "..."
-                : orbState === "speaking"
-                  ? "●"
-                  : orbState === "listening"
-                    ? "◉"
-                    : "○"}
-            </span>
+            {orbState === "thinking" ? (
+              <span className="truncate text-[11px] font-medium text-brand-deep">
+                {t("chat.status.thinking")}
+              </span>
+            ) : activeAgent?.description ? (
+              <span className="truncate text-[11px] text-muted-foreground">
+                {activeAgent.description}
+              </span>
+            ) : null}
           </div>
         </div>
         <Button

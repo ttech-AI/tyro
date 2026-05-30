@@ -224,6 +224,10 @@ export const strings = {
   "chat.reset": "Start new chat",
   "chat.scrollToLatest": "Jump to latest",
   "chat.newMessagePill": "{count} new",
+  "chat.status.thinking": "Typing…",
+  "chat.message.copy": "Copy message",
+  "chat.message.copied": "Copied",
+  "chat.message.copyFailed": "Could not copy",
 
   // App Launcher (Dashboard)
   "launcher.title": "TYRO AI Platform",

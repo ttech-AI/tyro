@@ -1,11 +1,13 @@
-import { memo } from "react"
+import { memo, useState } from "react"
 import { motion } from "motion/react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Copy01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { useLocale } from "@/hooks/useLocale"
 import { PastelOrb } from "@/components/brand/PastelOrb"
 import { IconOrLogo } from "@/components/common/IconOrLogo"
 import { useConfig } from "@/hooks/useConfig"
-import { useMe } from "@/hooks/useMe"
 
 function formatTime(date, locale) {
   return new Intl.DateTimeFormat(locale === "tr" ? "tr-TR" : "en-US", {
@@ -20,10 +22,46 @@ function formatTime(date, locale) {
 // (max ~ 65 characters per line, the typographic comfort range).
 const BUBBLE_MAX_WIDTH = "max-w-[88%] sm:max-w-[78%] md:max-w-[65ch]"
 
+// Copy-to-clipboard button rendered next to the timestamp on assistant
+// messages. Always visible on touch (no hover-reveal trap). Shows a brief
+// "copied" tick on success.
+function CopyButton({ content }) {
+  const { t } = useLocale()
+  const [copied, setCopied] = useState(false)
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(content ?? "")
+      setCopied(true)
+      toast.success(t("chat.message.copied"))
+      setTimeout(() => setCopied(false), 1600)
+    } catch {
+      toast.error(t("chat.message.copyFailed"))
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      aria-label={t("chat.message.copy")}
+      title={t("chat.message.copy")}
+      className={cn(
+        "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/60",
+        "transition hover:bg-muted hover:text-foreground",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40",
+      )}
+    >
+      <HugeiconsIcon
+        icon={copied ? Tick01Icon : Copy01Icon}
+        className={cn("size-3.5", copied && "text-brand-via")}
+        strokeWidth={1.8}
+      />
+    </button>
+  )
+}
+
 function ChatMessageInner({ message }) {
   const { locale } = useLocale()
   const { getAgent } = useConfig()
-  const me = useMe()
   const isUser = message.role === "user"
   const time = message.time instanceof Date ? message.time : new Date(message.time)
 
@@ -43,9 +81,9 @@ function ChatMessageInner({ message }) {
             {formatTime(time, locale)}
           </span>
         </div>
-        <PastelOrb className="size-7 shrink-0">
-          <span className="text-[10px] font-semibold text-brand-deep">{me.initials}</span>
-        </PastelOrb>
+        {/* User avatar — pastel gradient orb only, no initials inside.
+            The orb itself is the identity cue; initials added noise. */}
+        <PastelOrb className="size-7 shrink-0" />
       </motion.div>
     )
   }
@@ -73,9 +111,12 @@ function ChatMessageInner({ message }) {
         >
           {message.content}
         </div>
-        <span className="mt-1 text-[10px] tabular-nums text-muted-foreground/70">
-          {formatTime(time, locale)}
-        </span>
+        {/* Timestamp + copy action row. Copy button always visible on touch
+            (no hover-reveal) — matches ChatGPT/Claude mobile pattern. */}
+        <div className="mt-0.5 flex items-center gap-1 text-muted-foreground/70">
+          <span className="text-[10px] tabular-nums">{formatTime(time, locale)}</span>
+          <CopyButton content={message.content} />
+        </div>
       </div>
     </motion.div>
   )
