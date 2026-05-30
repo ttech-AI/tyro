@@ -196,19 +196,41 @@ export function PastelVoiceOrb({
         </>
       )}
 
-      {/* 4. Main Orb Container */}
+      {/* 4. Main Orb Container.
+          On iOS Safari, `overflow:hidden + border-radius:50%` fails to
+          clip children that use mix-blend-mode or filter (Layers C/D/F
+          use both) — the children "escape" through the corners and the
+          orb-base appears as a tinted square behind the visible round.
+          clip-path on the parent would fix the clip but ALSO clip the
+          outer box-shadow halo, killing the orb's glow.
+          The fix is structural: this outer span carries the bg + box-
+          shadow (halo paints freely outside the circle), and an inner
+          .clipped span holds the round mask + all the layers. */}
       <motion.span
-        className="relative overflow-hidden rounded-full"
+        className="relative rounded-full"
         style={{
           width: size,
           height: size,
-          background: "rgba(255,255,255,0.32)",
           boxShadow:
-            "0 28px 85px rgba(var(--voiceorb-c2),0.32), 0 16px 52px rgba(var(--voiceorb-c1),0.20), inset 0 0 22px rgba(255,255,255,0.64), inset 0 0 54px rgba(255,255,255,0.34)",
+            "0 28px 85px rgba(var(--voiceorb-c2),0.32), 0 16px 52px rgba(var(--voiceorb-c1),0.20)",
         }}
         animate={mainAnim}
         transition={mainTransition}
       >
+        <span
+          className="absolute inset-0 overflow-hidden rounded-full"
+          aria-hidden="true"
+          style={{
+            background: "rgba(255,255,255,0.32)",
+            boxShadow:
+              "inset 0 0 22px rgba(255,255,255,0.64), inset 0 0 54px rgba(255,255,255,0.34)",
+            // Belt-and-braces clip-path for iOS Safari which ignores the
+            // overflow+border-radius pair when children use mix-blend-mode.
+            clipPath: "circle(50% at 50% 50%)",
+            WebkitClipPath: "circle(50% at 50% 50%)",
+            isolation: "isolate",
+          }}
+        >
         {/* Layer A — Milky Base */}
         <motion.span
           className="pointer-events-none absolute inset-0 rounded-full"
@@ -510,6 +532,7 @@ export function PastelVoiceOrb({
             <HugeiconsIcon icon={IconComp} className="size-7" />
           </span>
         )}
+        </span>
       </motion.span>
     </button>
   )
