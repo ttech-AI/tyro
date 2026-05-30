@@ -346,6 +346,7 @@ export const strings = {
   "login.cta": "TYROVERSE İLE BAĞLAN",
   "login.copyright": "© 2026 Powered by TTECH Business Solutions · TYRO AI",
   "login.error": "Giriş yapılamadı, lütfen tekrar dene.",
+  "login.connectingTitle": "TYROVERSE'e bağlanılıyor",
   "login.audio.mute": "Sesi kapat",
   "login.audio.unmute": "Sesi aç",
 

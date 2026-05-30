@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react"
+import { lazy, Suspense, useState, useEffect, useRef, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "motion/react"
 import { useMsal } from "@azure/msal-react"
@@ -8,6 +8,11 @@ import { ArrowRight02Icon, Moon02Icon, Sun03Icon, VolumeHighIcon, VolumeMute02Ic
 import { TyroLogo } from "@/components/brand/TyroLogo"
 import { PastelVoiceOrb } from "@/components/brand/PastelVoiceOrb"
 import { useLocale } from "@/hooks/useLocale"
+
+// Three.js globe is lazy-loaded (~600 KB chunk) so it doesn't block first paint.
+// While it streams, the regular PastelVoiceOrb keeps showing.
+const loadGlobe3D = () => import("@/components/brand/Globe3D")
+const Globe3D = lazy(loadGlobe3D)
 import { useTheme } from "@/hooks/useTheme"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { isMsalConfigured, loginRequest, MOCK_LOGGED_IN_KEY } from "@/lib/msal"
@@ -91,6 +96,14 @@ export function LoginPage() {
       setTheme("light")
       setLocale("tr")
       window.localStorage.setItem(LOGIN_INIT_FLAG, "1")
+    }
+    // Warm the Three.js chunk while the user reads the page so the globe is
+    // ready the instant they click Connect — avoids the first-click Suspense
+    // fallback flicker (orb → orb-fallback → globe pop).
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      window.requestIdleCallback(() => loadGlobe3D(), { timeout: 2000 })
+    } else {
+      setTimeout(loadGlobe3D, 800)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -189,14 +202,20 @@ export function LoginPage() {
   async function handleConnect() {
     if (isSpinning) return
     if (activityTimer.current) clearTimeout(activityTimer.current)
+    // Clear any fired-timer ids left over from previous failed attempts so
+    // the array doesn't grow across retries. Mutate in place (length = 0)
+    // rather than reassigning — the unmount cleanup captured this array
+    // reference at mount, so reassigning would orphan new timer ids.
+    connectTimers.current.forEach(clearTimeout)
+    connectTimers.current.length = 0
     setPhase("connecting")
 
     // MSAL configured → real Azure AD login via redirect; otherwise mock flag.
-    // Redirect flow: cinematic transition first, then send the user to MS.
-    // On return, main.jsx's handleRedirectPromise() picks up the auth and the
-    // auth gate sends them to /dashboard.
+    // Redirect flow: globe spins (~1.1s), short corporate wash (~500ms),
+    // then loginRedirect. Total ~1.6s — Stripe/MS-365 territory rather than
+    // the previous 2.3s which read as a hang.
     if (isMsalConfigured) {
-      connectTimers.current.push(setTimeout(() => setPhase("dissolving"), 1500))
+      connectTimers.current.push(setTimeout(() => setPhase("dissolving"), 1100))
       connectTimers.current.push(
         setTimeout(() => {
           instance.loginRedirect(loginRequest).catch((err) => {
@@ -204,19 +223,25 @@ export function LoginPage() {
             setPhase("idle")
             toast.error(t("login.error"))
           })
-        }, 2300),
+        }, 1600),
       )
       return
     }
 
     // Mock auth fallback
-    connectTimers.current.push(setTimeout(() => setPhase("dissolving"), 1500))
+    connectTimers.current.push(setTimeout(() => setPhase("dissolving"), 1100))
     connectTimers.current.push(
       setTimeout(() => {
-        window.sessionStorage.setItem(MOCK_LOGGED_IN_KEY, "1")
-        window.localStorage.removeItem(MOCK_LOGGED_IN_KEY)
-        navigate("/dashboard")
-      }, 2300),
+        try {
+          window.sessionStorage.setItem(MOCK_LOGGED_IN_KEY, "1")
+          window.localStorage.removeItem(MOCK_LOGGED_IN_KEY)
+          navigate("/dashboard")
+        } catch (err) {
+          console.warn("[mock-auth] navigate failed:", err?.message || err)
+          setPhase("idle")
+          toast.error(t("login.error"))
+        }
+      }, 1600),
     )
   }
 
@@ -353,7 +378,9 @@ export function LoginPage() {
             </motion.span>
           </motion.h1>
 
-          {/* Orb container — orb rotates + satellites orbit during connect */}
+          {/* Orb container — PastelVoiceOrb for idle/listening/speaking; swaps
+              to a real Three.js sphere during connecting/dissolving so the
+              spin reads as a globe rotating on its Y axis, not a 2D spinner. */}
           <motion.div
             initial={{ opacity: 0, scale: 0.7, filter: "blur(20px)" }}
             animate={{
@@ -363,51 +390,40 @@ export function LoginPage() {
             }}
             transition={{ duration: 1.2, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
             className="relative z-10"
+            style={{ width: orbSize, height: orbSize }}
           >
-            {/* Orb itself spins around its own Z axis (gradient highlight rotates) */}
-            <motion.div
-              animate={{ rotate: isSpinning ? 360 : 0 }}
-              transition={
-                isSpinning
-                  ? { rotate: { duration: 2, repeat: Infinity, ease: "linear" } }
-                  : { rotate: { duration: 0.5, ease: "easeOut" } }
-              }
-            >
-              <PastelVoiceOrb state={orbState} level={effectiveLevel} size={orbSize} />
-            </motion.div>
-
-            {/* Orbital satellites — faster counter-spin around orb */}
-            <AnimatePresence>
-              {isSpinning && (
+            {/* mode='sync' so the exiting 2D orb and entering 3D globe overlap
+                during the crossfade — 'wait' produced a 350-450ms blank window
+                at the orb position between exit and enter. Both motion.divs are
+                absolute-positioned so layout doesn't jump. */}
+            <AnimatePresence mode="sync" initial={false}>
+              {isSpinning ? (
                 <motion.div
-                  key="orbit"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1, rotate: 360 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{
-                    opacity: { duration: 0.3 },
-                    scale: { duration: 0.3 },
-                    rotate: { duration: 1.2, repeat: Infinity, ease: "linear" },
-                  }}
-                  className="pointer-events-none absolute inset-0 z-20"
+                  key="globe3d"
+                  initial={{ opacity: 0, scale: 0.94 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0"
                 >
-                  <div aria-hidden="true" className="absolute inset-[6%] rounded-full border border-white/15" />
-                  <div
-                    aria-hidden="true"
-                    className="absolute left-1/2 top-[6%] -ml-1.5 size-3 rounded-full bg-white"
-                    style={{
-                      boxShadow:
-                        "0 0 12px 4px rgba(255,255,255,0.6), 0 0 24px 8px rgba(221,42,123,0.4)",
-                    }}
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="absolute left-1/2 bottom-[6%] -ml-1 size-2 rounded-full bg-[#feda77]"
-                    style={{
-                      boxShadow:
-                        "0 0 8px 3px rgba(254,218,119,0.7), 0 0 18px 6px rgba(129,52,175,0.4)",
-                    }}
-                  />
+                  <Suspense
+                    fallback={
+                      <PastelVoiceOrb state="thinking" level={0} size={orbSize} />
+                    }
+                  >
+                    <Globe3D size={orbSize} spinning isMobile={isMobile} />
+                  </Suspense>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="orb-2d"
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0"
+                >
+                  <PastelVoiceOrb state={orbState} level={effectiveLevel} size={orbSize} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -488,69 +504,78 @@ export function LoginPage() {
         </p>
       </motion.footer>
 
-      {/* Cinematic portal — bloom from orb center, pastel Insta veil, soft flash */}
+      {/* Corporate transition — deep navy wash, text-led, no logo splash.
+          Stripe / Microsoft 365 / Linear pattern: the page they came from
+          owned the brand mark; this 500ms handoff just confirms the system
+          is authenticating. No saturated colors, no logo, no bouncing dots. */}
       <AnimatePresence>
         {phase === "dissolving" && (
-          <>
-            {/* Soft pastel Insta veil — gradient field that follows behind bloom */}
-            <motion.div
-              key="veil"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.65, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
-              className="pointer-events-none fixed inset-0 z-30"
+          <motion.div
+            key="corporate-wash"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            // No pointer-events-none — the page is mid-redirect and shouldn't
+            // accept clicks on the header controls underneath. The overlay
+            // covers the viewport completely, so blocking input is correct.
+            className="fixed inset-0 z-50 grid place-items-center bg-[#0a1628]"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            {/* Whisper-quiet purple depth glow — keeps the brand thread without
+                tipping into pastel. 14% opacity at the center, fades by 70%. */}
+            <div
+              aria-hidden="true"
+              className="absolute inset-0"
               style={{
                 background:
-                  "linear-gradient(135deg, #fff4dc 0%, #fdd5e5 28%, #e5d4fa 58%, #fef0e3 100%)",
+                  "radial-gradient(ellipse 80% 60% at 50% 45%, rgba(129,52,175,0.14) 0%, rgba(129,52,175,0.04) 35%, transparent 70%)",
               }}
             />
 
-            {/* Bloom — expanding glowing disc from orb center */}
-            <motion.div
-              key="bloom"
-              initial={{ scale: 0.4, opacity: 0 }}
-              animate={{ scale: 9, opacity: [0, 1, 0.75] }}
-              exit={{ opacity: 0 }}
-              transition={{
-                duration: 0.9,
-                times: [0, 0.45, 1],
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              className="pointer-events-none fixed left-1/2 top-1/2 z-40 size-[24vmin] -translate-x-1/2 -translate-y-1/2 rounded-full"
-              style={{
-                background:
-                  "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(254,218,119,0.85) 22%, rgba(221,42,123,0.55) 52%, rgba(129,52,175,0.25) 78%, transparent 100%)",
-                filter: "blur(28px)",
-              }}
-            />
+            {/* Indeterminate hairline progress at the top — Stripe-style.
+                White at low opacity, with a moving highlight that travels
+                left→right on a 1.4s loop. Replaces the previous saturated
+                Insta-gradient stripe which read as Tumblr SaaS. */}
+            <div
+              aria-hidden="true"
+              className="absolute left-0 right-0 top-0 h-px overflow-hidden bg-white/10"
+            >
+              <motion.div
+                className="absolute left-0 top-0 h-full w-[28%] bg-white/55"
+                animate={{ x: ["-100%", "380%"] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+              />
+            </div>
 
-            {/* Sweep — thin bright ring that washes outward as a portal lip */}
             <motion.div
-              key="sweep"
-              initial={{ scale: 0.2, opacity: 0 }}
-              animate={{ scale: 7, opacity: [0, 0.6, 0] }}
-              transition={{
-                duration: 0.85,
-                times: [0, 0.35, 1],
-                ease: "easeOut",
-              }}
-              className="pointer-events-none fixed left-1/2 top-1/2 z-40 size-[24vmin] -translate-x-1/2 -translate-y-1/2 rounded-full"
-              style={{
-                boxShadow:
-                  "0 0 0 1px rgba(255,255,255,0.9), 0 0 24px 6px rgba(254,218,119,0.7), 0 0 48px 12px rgba(221,42,123,0.5)",
-              }}
-            />
-
-            {/* Soft initial flash — single subtle pulse */}
-            <motion.div
-              key="flash"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: [0, 0.45, 0] }}
-              transition={{ duration: 0.5, times: [0, 0.4, 1], ease: "easeOut" }}
-              className="pointer-events-none fixed inset-0 z-50 bg-white"
-            />
-          </>
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+              className="relative z-10 flex flex-col items-center gap-5 px-6"
+            >
+              <p
+                className="text-[13px] font-medium text-white/80 sm:text-sm"
+                style={{ letterSpacing: "0.04em" }}
+              >
+                {t("login.connectingTitle")}
+              </p>
+              {/* Sliding bar — singular, restrained. Matches the top hairline
+                  motion, gives a clear "operating" signal without typing-
+                  indicator vibes. */}
+              <div
+                aria-hidden="true"
+                className="relative h-px w-40 overflow-hidden bg-white/10"
+              >
+                <motion.div
+                  className="absolute left-0 top-0 h-full w-1/3 bg-white/70"
+                  animate={{ x: ["-100%", "300%"] }}
+                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                />
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
