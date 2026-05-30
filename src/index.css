@@ -644,6 +644,99 @@
   }
 }
 
+/* ── Scrollbars — premium chrome treatment ─────────────────────────
+   8 px pill thumb on a transparent track, color-mixed from --foreground
+   so it inherits light/dark theme and palette swaps automatically.
+   2 px inset border via background-clip gives a "floating" look (Stripe /
+   Vercel pattern). Hidden entirely on coarse pointers (phones/tablets)
+   so the OS overlay takes over. scrollbar-gutter: stable on declared
+   internal scrollers prevents 8 px content reflow when long content
+   arrives. Opt-outs (.no-scrollbar, anything that sets scrollbar-width:
+   none inline like the chat chips row + dashboard launcher) are honored. */
+
+/* Firefox + spec — thin tinted thumb, transparent track. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 18%, transparent) transparent;
+}
+.dark {
+  scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent) transparent;
+}
+
+/* WebKit — full visual treatment via universal selector so dropdowns,
+   sheets, dialogs, sidebar, and every overflow:auto region inherit. */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklab, var(--foreground) 18%, transparent);
+  border-radius: 9999px;
+  /* Inset transparent border = 4 px effective stroke centered in the 8 px channel. */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 160ms ease-out;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklab, var(--foreground) 36%, transparent);
+}
+*::-webkit-scrollbar-thumb:active {
+  background-color: color-mix(in oklab, var(--foreground) 48%, transparent);
+}
+
+/* Dark mode — needs slightly more opacity to stay visible on dark surfaces. */
+.dark *::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklab, var(--foreground) 22%, transparent);
+}
+.dark *::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklab, var(--foreground) 40%, transparent);
+}
+.dark *::-webkit-scrollbar-thumb:active {
+  background-color: color-mix(in oklab, var(--foreground) 55%, transparent);
+}
+
+/* Stable gutter on real internal scrollers — no 8 px content reflow
+   when long content arrives. Scoped (not on html) so it doesn't push
+   the centered launcher off-axis when the page itself doesn't scroll. */
+[class*="overflow-y-auto"],
+[class*="overflow-auto"],
+[class*="overflow-y-scroll"] {
+  scrollbar-gutter: stable;
+}
+
+/* Touch / coarse pointers — hide our custom bar entirely so the OS
+   overlay is the only thing visible. Phones + tablets stay chrome-free. */
+@media (hover: none) and (pointer: coarse) {
+  html {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+}
+
+/* Opt-out preservation — re-assert hidden state for elements that
+   explicitly want NO bar (chat chips row, dashboard launcher, etc).
+   Universal selectors above would otherwise re-show them. */
+.no-scrollbar,
+[class*="[scrollbar-width:none]"] {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar,
+[class*="[scrollbar-width:none]"]::-webkit-scrollbar,
+[class*="[&::-webkit-scrollbar]:hidden"]::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 /* ── Mobile / PWA utilities ───────────────────────────────────────
    Reusable helpers for safe-area insets and tap targets. Apply to
    bottom-sticky chrome (composer, footer, toaster) and any 32–40 px
