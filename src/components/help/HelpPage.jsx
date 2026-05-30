@@ -114,7 +114,7 @@ export function HelpPage() {
   ]
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-3 pb-12 pt-6 sm:gap-12 sm:px-4 sm:pb-16 sm:pt-8 lg:px-6">
+    <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-10 overflow-y-auto px-3 pb-12 pt-6 sm:gap-12 sm:px-4 sm:pb-16 sm:pt-8 lg:px-6">
       {/* Hero */}
       <motion.header
         initial={{ opacity: 0, y: 10 }}

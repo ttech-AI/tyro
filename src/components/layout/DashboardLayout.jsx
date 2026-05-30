@@ -12,7 +12,13 @@ export function DashboardLayout({ children, activeId, onActiveIdChange, onNewCha
 
   return (
     <SidebarProvider
-      className="bg-sidebar"
+      // h-[100dvh] + overflow-hidden caps the whole dashboard at the
+      // viewport — without an UPPER bound at the top of the flex chain,
+      // every `min-h-0` further down is toothless because the parent has
+      // no defined height to constrain children against. The shadcn
+      // primitive only sets `min-h-svh` (LOWER bound), so chat thread
+      // content was growing the whole page and scrolling the body.
+      className="bg-sidebar h-[100dvh] overflow-hidden"
       style={{
         "--sidebar-width": "15rem",
         "--sidebar-width-icon": "3rem",

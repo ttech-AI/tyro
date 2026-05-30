@@ -244,7 +244,7 @@ export function AppLauncher({ onOpenChat, onNewChat }) {
     locale === "tr" ? "Sohbet başlat ve sorularını sor" : "Start a chat and ask your questions"
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-3 pb-10 sm:gap-8 sm:px-4 sm:pb-12 lg:px-6">
+    <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-6 overflow-y-auto px-3 pb-10 sm:gap-8 sm:px-4 sm:pb-12 lg:px-6">
       <HeroSection onNewChat={onNewChat} />
 
       {/* Elegant divider */}

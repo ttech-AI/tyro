@@ -241,7 +241,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-3 py-5 font-sans sm:gap-6 sm:px-4 sm:py-6 lg:px-6 lg:py-8" style={{ fontFamily: '"Inter Variable", "Inter", system-ui, sans-serif' }}>
+    <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-5 overflow-y-auto px-3 py-5 font-sans sm:gap-6 sm:px-4 sm:py-6 lg:px-6 lg:py-8" style={{ fontFamily: '"Inter Variable", "Inter", system-ui, sans-serif' }}>
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
           {t("settings.title")}
