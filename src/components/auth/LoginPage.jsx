@@ -440,8 +440,8 @@ export function LoginPage() {
           className={cn(
             "relative z-10 flex flex-col items-center text-center",
             isShortHeight
-              ? "mt-8 gap-4 sm:mt-10 sm:gap-5"
-              : "mt-10 gap-5 sm:mt-16 sm:gap-7",
+              ? "mt-4 gap-4 sm:mt-6 sm:gap-5"
+              : "mt-6 gap-5 sm:mt-10 sm:gap-7",
           )}
         >
           <motion.div
