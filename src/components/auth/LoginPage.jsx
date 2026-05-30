@@ -54,7 +54,7 @@ const headlineLetter = {
     opacity: 0,
     y: -12,
     filter: "blur(12px)",
-    transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
   },
 }
 
@@ -84,19 +84,20 @@ export function LoginPage() {
   const playGreetingRef = useRef(() => {})
 
   const isDark = theme === "dark"
-  const isSpinning = phase === "connecting" || phase === "dissolving"
+  // Single-phase handoff: click → "dissolving" → navigate at t=1.4s. The
+  // old two-phase (connecting → dissolving) introduced a ~550ms dwell at
+  // the intermediate 1.22× scale that read as "stuck mid-animation". The
+  // user wanted one continuous flow, so we skip the intermediate phase
+  // entirely and let the orb scale uninterrupted from 1× to 3×.
+  const isSpinning = phase === "dissolving"
   // Same boolean, named for what it drives in the JSX: when true, all chrome
-  // (header, headline, tagline, CTA, footer) fades out and the orb takes
+  // (header, headline, tagline, CTA, footer) fades out fast and the orb takes
   // the whole stage and grows.
   const isConnecting = isSpinning
-  // How much the orb scales during the handoff. Subtle bump during connecting
-  // (1.25×) → dramatic bloom during dissolving (3×) so the last beat reads
-  // as "the orb is the portal", then loginRedirect fires.
-  const orbScale =
-    phase === "dissolving" ? (isMobile ? 2.4 : 3) : phase === "connecting" ? 1.22 : 1
-  // On Connect: orb stays still and just plays the speaking-mode visual.
-  // The handoff effect comes from the page chrome fading and the orb scaling
-  // up — no rotation, no orbital satellites, no axial wobble.
+  const orbScale = phase === "dissolving" ? (isMobile ? 2.4 : 3) : 1
+  // During handoff the orb stays in speaking visual so it pulses while it
+  // grows — same beat the user gets when the greeting plays. No rotation,
+  // no orbital satellites, no axial wobble.
   const orbState = isSpinning
     ? "speaking"
     : isSpeaking
@@ -212,15 +213,17 @@ export function LoginPage() {
   }, [])
 
   // ---------- Speaking level oscillation (drives orb scale during speak) ----------
+  // Also oscillates during the dissolve handoff so the orb pulses *while*
+  // it grows — without this, an audio-less click would scale a static orb.
   useEffect(() => {
-    if (!isSpeaking) return
+    if (!isSpeaking && phase !== "dissolving") return
     speakingTimer.current = setInterval(() => {
       setSpeakingLevel(0.25 + Math.random() * 0.75)
     }, 95)
     return () => clearInterval(speakingTimer.current)
-  }, [isSpeaking])
+  }, [isSpeaking, phase])
 
-  const effectiveLevel = isSpeaking ? speakingLevel : 0
+  const effectiveLevel = isSpeaking || phase === "dissolving" ? speakingLevel : 0
 
   function handleToggleMute() {
     const next = !muted
@@ -268,14 +271,12 @@ export function LoginPage() {
     // reference at mount, so reassigning would orphan new timer ids.
     connectTimers.current.forEach(clearTimeout)
     connectTimers.current.length = 0
-    setPhase("connecting")
+    // Single-phase handoff: chrome rips out in ~220ms while the orb scales
+    // continuously from 1× to 3× over the full 1.4s window, then
+    // loginRedirect / navigate fires. No intermediate dwell.
+    setPhase("dissolving")
 
-    // MSAL configured → real Azure AD login via redirect; otherwise mock flag.
-    // Redirect flow: globe spins (~1.1s), short corporate wash (~500ms),
-    // then loginRedirect. Total ~1.6s — Stripe/MS-365 territory rather than
-    // the previous 2.3s which read as a hang.
     if (isMsalConfigured) {
-      connectTimers.current.push(setTimeout(() => setPhase("dissolving"), 1100))
       connectTimers.current.push(
         setTimeout(() => {
           instance.loginRedirect(loginRequest).catch((err) => {
@@ -283,13 +284,12 @@ export function LoginPage() {
             setPhase("idle")
             toast.error(t("login.error"))
           })
-        }, 1600),
+        }, 1400),
       )
       return
     }
 
     // Mock auth fallback
-    connectTimers.current.push(setTimeout(() => setPhase("dissolving"), 1100))
     connectTimers.current.push(
       setTimeout(() => {
         try {
@@ -301,7 +301,7 @@ export function LoginPage() {
           setPhase("idle")
           toast.error(t("login.error"))
         }
-      }, 1600),
+      }, 1400),
     )
   }
 
@@ -359,7 +359,7 @@ export function LoginPage() {
       <motion.div
         aria-hidden="true"
         animate={{ opacity: isConnecting ? 0 : 1 }}
-        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: isConnecting ? 0.22 : 0.4, ease: [0.22, 1, 0.36, 1] }}
         className="pointer-events-none absolute inset-0"
       >
         <div className={cn("absolute left-0 right-0 top-[76px] h-px sm:top-[92px]", isDark ? "bg-white/10" : "bg-black/10")} />
@@ -378,7 +378,7 @@ export function LoginPage() {
             : { opacity: 1, y: 0, filter: "blur(0px)" }
         }
         transition={{
-          duration: isConnecting ? 0.42 : 0.8,
+          duration: isConnecting ? 0.22 : 0.8,
           ease: [0.22, 1, 0.36, 1],
         }}
         className="relative z-20 flex h-[76px] shrink-0 items-center justify-between px-4 sm:h-[92px] sm:px-10 lg:px-14"
@@ -503,8 +503,8 @@ export function LoginPage() {
             <motion.div
               animate={{ scale: orbScale }}
               transition={{
-                duration: phase === "dissolving" ? 0.95 : 0.55,
-                ease: phase === "dissolving" ? [0.45, 0, 0.2, 1] : [0.22, 1, 0.36, 1],
+                duration: phase === "dissolving" ? 1.3 : 0.55,
+                ease: phase === "dissolving" ? [0.42, 0, 0.2, 1] : [0.22, 1, 0.36, 1],
               }}
               className="relative"
             >
@@ -521,7 +521,7 @@ export function LoginPage() {
               ? { opacity: 0, y: 12, filter: "blur(6px)" }
               : { opacity: 1, y: 0, filter: "blur(0px)" }
           }
-          transition={{ duration: isConnecting ? 0.38 : 0.55, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: isConnecting ? 0.22 : 0.55, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
             "relative z-10 flex flex-col items-center text-center",
             isShortHeight
@@ -591,7 +591,7 @@ export function LoginPage() {
             : { opacity: 1, y: 0, filter: "blur(0px)" }
         }
         transition={{
-          duration: isConnecting ? 0.4 : 0.6,
+          duration: isConnecting ? 0.22 : 0.6,
           delay: isConnecting ? 0 : 1.5,
           ease: [0.22, 1, 0.36, 1],
         }}
@@ -617,12 +617,9 @@ export function LoginPage() {
           logo — the orb itself is the transition. */}
       <motion.div
         aria-hidden="true"
-        animate={{
-          opacity:
-            phase === "dissolving" ? 1 : phase === "connecting" ? 0.35 : 0,
-        }}
+        animate={{ opacity: phase === "dissolving" ? 1 : 0 }}
         transition={{
-          duration: phase === "dissolving" ? 0.7 : 0.5,
+          duration: phase === "dissolving" ? 0.9 : 0.5,
           ease: [0.22, 1, 0.36, 1],
         }}
         className="pointer-events-none absolute inset-0 z-0"
