@@ -4,15 +4,16 @@ import { motion } from "motion/react"
 import { Card } from "@/components/ui/card"
 import { useLocale } from "@/hooks/useLocale"
 import { getApp } from "@/data/apps"
-import { cn } from "@/lib/utils"
+import { cn, safeExternalUrl } from "@/lib/utils"
 
 export function StatCard({ stat, index = 0, className }) {
   const { t } = useLocale()
   const app = getApp(stat.sourceAppId)
 
   const handleClick = () => {
-    if (app?.url && app.url !== "#") {
-      window.open(app.url, "_blank", "noopener,noreferrer")
+    const safe = safeExternalUrl(app?.url)
+    if (safe !== "#") {
+      window.open(safe, "_blank", "noopener,noreferrer")
     }
   }
 

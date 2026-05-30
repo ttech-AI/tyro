@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useLocale } from "@/hooks/useLocale"
 import { getCategory, categoryTones } from "@/data/categories"
 import { formatRelative } from "@/lib/date"
-import { cn } from "@/lib/utils"
+import { cn, safeExternalUrl } from "@/lib/utils"
 
 export function AppCard({ app, index = 0 }) {
   const { t, locale } = useLocale()
@@ -36,7 +36,7 @@ export function AppCard({ app, index = 0 }) {
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5">
             <a
-              href={app.url}
+              href={safeExternalUrl(app.url)}
               target="_blank"
               rel="noopener noreferrer"
               className="text-base font-semibold tracking-tight outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-2 focus-visible:after:ring-ring"

@@ -272,6 +272,7 @@ export const strings = {
   "settings.field.description": "Açıklama",
   "settings.field.descriptionPlaceholder": "Kısa açıklama, kart altında gözükecek",
   "settings.field.url": "URL adresi",
+  "settings.field.urlInvalid": "Geçersiz URL. Sadece http://, https:// veya mailto: ile başlayan adresler kabul edilir.",
   "settings.field.tenantId": "Tenant ID",
   "settings.field.clientId": "Client ID",
   "settings.field.agentId": "Agent ID",

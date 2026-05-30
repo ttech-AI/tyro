@@ -19,6 +19,7 @@ import { useTheme } from "@/hooks/useTheme"
 import { apps, getApp } from "@/data/apps"
 import { activities } from "@/data/activities"
 import { formatRelative } from "@/lib/date"
+import { safeExternalUrl } from "@/lib/utils"
 
 export function CommandPalette({ open, onOpenChange }) {
   const { t, locale, toggle: toggleLocale } = useLocale()
@@ -27,8 +28,9 @@ export function CommandPalette({ open, onOpenChange }) {
   const close = () => onOpenChange?.(false)
 
   const openApp = (url) => {
-    if (url && url !== "#") {
-      window.open(url, "_blank", "noopener,noreferrer")
+    const safe = safeExternalUrl(url)
+    if (safe !== "#") {
+      window.open(safe, "_blank", "noopener,noreferrer")
     }
     close()
   }

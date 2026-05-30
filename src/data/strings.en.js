@@ -272,6 +272,7 @@ export const strings = {
   "settings.field.description": "Description",
   "settings.field.descriptionPlaceholder": "Short description shown under the card",
   "settings.field.url": "URL",
+  "settings.field.urlInvalid": "Invalid URL. Only addresses starting with http://, https:// or mailto: are allowed.",
   "settings.field.tenantId": "Tenant ID",
   "settings.field.clientId": "Client ID",
   "settings.field.agentId": "Agent ID",

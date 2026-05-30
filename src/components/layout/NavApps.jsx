@@ -25,7 +25,7 @@ import {
 import { IconOrLogo } from "@/components/common/IconOrLogo"
 import { useLocale } from "@/hooks/useLocale"
 import { useConfig } from "@/hooks/useConfig"
-import { cn } from "@/lib/utils"
+import { cn, safeExternalUrl } from "@/lib/utils"
 
 const GROUP_LABEL = "text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/55"
 const COLLAPSE_THRESHOLD = 3
@@ -33,10 +33,11 @@ const COLLAPSE_THRESHOLD = 3
 function AppItem({ app }) {
   const { t } = useLocale()
   const { isMobile } = useSidebar()
+  const href = safeExternalUrl(app.url)
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild tooltip={app.name}>
-        <a href={app.url || "#"} target="_blank" rel="noopener noreferrer">
+        <a href={href} target="_blank" rel="noopener noreferrer">
           <span className="grid size-5 shrink-0 place-items-center overflow-hidden rounded-[5px]">
             <IconOrLogo
               iconName={app.iconName}
@@ -61,7 +62,7 @@ function AppItem({ app }) {
           align={isMobile ? "end" : "start"}
         >
           <DropdownMenuItem asChild>
-            <a href={app.url || "#"} target="_blank" rel="noopener noreferrer">
+            <a href={href} target="_blank" rel="noopener noreferrer">
               <HugeiconsIcon icon={LinkSquare02Icon} />
               <span>{t("apps.openExternal")}</span>
             </a>

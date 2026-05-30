@@ -6,7 +6,7 @@ import { useLocale } from "@/hooks/useLocale"
 import { useConfig } from "@/hooks/useConfig"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useMe } from "@/hooks/useMe"
-import { cn } from "@/lib/utils"
+import { cn, safeExternalUrl } from "@/lib/utils"
 import { IconOrLogo } from "@/components/common/IconOrLogo"
 import { PastelVoiceOrb } from "@/components/brand/PastelVoiceOrb"
 
@@ -275,7 +275,10 @@ export function AppLauncher({ onOpenChat, onNewChat }) {
               logo={app.logo}
               title={app.name}
               subtitle={app.description}
-              onClick={() => app.url && window.open(app.url, "_blank", "noopener,noreferrer")}
+              onClick={() => {
+                const safe = safeExternalUrl(app.url)
+                if (safe !== "#") window.open(safe, "_blank", "noopener,noreferrer")
+              }}
               index={i}
               accent="ai"
             />
@@ -290,7 +293,10 @@ export function AppLauncher({ onOpenChat, onNewChat }) {
               logo={app.logo}
               title={app.name}
               subtitle={app.description}
-              onClick={() => app.url && window.open(app.url, "_blank", "noopener,noreferrer")}
+              onClick={() => {
+                const safe = safeExternalUrl(app.url)
+                if (safe !== "#") window.open(safe, "_blank", "noopener,noreferrer")
+              }}
               index={i}
               accent="business"
             />

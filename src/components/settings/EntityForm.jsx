@@ -17,7 +17,7 @@ import {
 import { IconPicker } from "./IconPicker"
 import { LogoUpload } from "./LogoUpload"
 import { useLocale } from "@/hooks/useLocale"
-import { cn } from "@/lib/utils"
+import { cn, isAllowedUrl, safeExternalUrl } from "@/lib/utils"
 
 function IdField({ id, label, value, placeholder, onChange }) {
   const { t } = useLocale()
@@ -106,6 +106,8 @@ export function EntityForm({ kind, open, initialValue, onClose, onSave }) {
 function EntityFormInner({ kind, initialValue, onClose, onSave }) {
   const { t } = useLocale()
   const [form, setForm] = useState(() => initialValue ?? emptyState(kind))
+  const isAgent = kind === "agent"
+  const isEditing = Boolean(initialValue?.id)
 
   function update(patch) {
     setForm((f) => ({ ...f, ...patch }))
@@ -114,11 +116,21 @@ function EntityFormInner({ kind, initialValue, onClose, onSave }) {
   function handleSave(e) {
     e.preventDefault()
     if (!form.name.trim()) return
-    onSave?.({ ...form, name: form.name.trim() })
+    // Reject non-http(s)/mailto URLs (incl. javascript:, data:, vbscript:) AND
+    // relative/bare-hostname inputs — the value persists to Dataverse and is
+    // replayed to every signed-in user, so an unsafe scheme here is a stored-
+    // XSS vector and a bare "www.x.com" would silently produce a broken link.
+    if (!isAgent && !isAllowedUrl(form.url)) {
+      toast.error(t("settings.field.urlInvalid"))
+      return
+    }
+    // Defense-in-depth: persist the canonical form (lowercase scheme, encoded
+    // host, etc.) so any future render path that reads url directly is still
+    // safe. Preserves empty / "#" as-is.
+    const trimmed = String(form.url ?? "").trim()
+    const url = isAgent || !trimmed || trimmed === "#" ? form.url : safeExternalUrl(form.url)
+    onSave?.({ ...form, name: form.name.trim(), url })
   }
-
-  const isAgent = kind === "agent"
-  const isEditing = Boolean(initialValue?.id)
 
   const titleKey = isAgent
     ? isEditing
@@ -193,7 +205,8 @@ function EntityFormInner({ kind, initialValue, onClose, onSave }) {
                 <Label htmlFor="entity-url">{t("settings.field.url")}</Label>
                 <Input
                   id="entity-url"
-                  type="url"
+                  type="text"
+                  inputMode="url"
                   value={form.url}
                   onChange={(e) => update({ url: e.target.value })}
                   placeholder="https://"
