@@ -84,20 +84,20 @@ export function LoginPage() {
   const playGreetingRef = useRef(() => {})
 
   const isDark = theme === "dark"
-  // Single-phase handoff: click → "dissolving" → navigate at t=1.4s. The
-  // old two-phase (connecting → dissolving) introduced a ~550ms dwell at
-  // the intermediate 1.22× scale that read as "stuck mid-animation". The
-  // user wanted one continuous flow, so we skip the intermediate phase
-  // entirely and let the orb scale uninterrupted from 1× to 3×.
+  // Single-phase handoff. Click → "dissolving":
+  //   - chrome fades out in ~220ms (everything except the orb)
+  //   - orb sits alone on stage at its natural size for a short breath
+  //   - orb fades out as the TYRO scramble overlay materializes in its place
+  //   - 4 cells cycle random ASCII glyphs then settle into T · Y · R · O
+  //   - navigate at t=1.8s (well inside the user's 2s ceiling)
+  // The orb itself does NOT scale — it stays at its original optical size
+  // while the chrome rips out and the scramble takes over.
   const isSpinning = phase === "dissolving"
   // Same boolean, named for what it drives in the JSX: when true, all chrome
-  // (header, headline, tagline, CTA, footer) fades out fast and the orb takes
-  // the whole stage and grows.
+  // (header, headline, tagline, CTA, footer) fades out fast.
   const isConnecting = isSpinning
-  const orbScale = phase === "dissolving" ? (isMobile ? 2.4 : 3) : 1
   // During handoff the orb stays in speaking visual so it pulses while it
-  // grows — same beat the user gets when the greeting plays. No rotation,
-  // no orbital satellites, no axial wobble.
+  // fades — last-breath beat before it shatters into the scramble.
   const orbState = isSpinning
     ? "speaking"
     : isSpeaking
@@ -271,9 +271,9 @@ export function LoginPage() {
     // reference at mount, so reassigning would orphan new timer ids.
     connectTimers.current.forEach(clearTimeout)
     connectTimers.current.length = 0
-    // Single-phase handoff: chrome rips out in ~220ms while the orb scales
-    // continuously from 1× to 3× over the full 1.4s window, then
-    // loginRedirect / navigate fires. No intermediate dwell.
+    // Single-phase handoff: chrome rips out in ~220ms, orb stays put for a
+    // brief breath, then fades out as the TYRO scramble overlay cycles
+    // random glyphs and settles into T · Y · R · O. Navigate at t=1.8s.
     setPhase("dissolving")
 
     if (isMsalConfigured) {
@@ -284,7 +284,7 @@ export function LoginPage() {
             setPhase("idle")
             toast.error(t("login.error"))
           })
-        }, 1400),
+        }, 1800),
       )
       return
     }
@@ -301,7 +301,7 @@ export function LoginPage() {
           setPhase("idle")
           toast.error(t("login.error"))
         }
-      }, 1400),
+      }, 1800),
     )
   }
 
@@ -462,12 +462,11 @@ export function LoginPage() {
             </motion.span>
           </motion.h1>
 
-          {/* Orb container — entrance fade-in for first paint, then the inner
-              scale wrapper drives the connect handoff (1× → 1.22× → 3×). The
-              orb itself sits in speaking-mode visual the whole time; no
-              rotation, no satellites, no axial wobble. Page chrome fades out
-              in parallel so the orb is the sole focal point by the time
-              loginRedirect fires. */}
+          {/* Orb container — entrance fade-in for first paint. The orb itself
+              never scales during the connect handoff; instead it fades out as
+              the TYRO scramble overlay (rendered as a sibling inside this same
+              wrapper so they share the optical center) cycles ASCII glyphs and
+              settles into the brand text. */}
           <motion.div
             initial={{ opacity: 0, scale: 0.7, filter: "blur(20px)" }}
             animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
@@ -488,28 +487,28 @@ export function LoginPage() {
             )}
             style={{ WebkitTapHighlightColor: "transparent" }}
           >
-            {/* Scale wrapper — the orb doesn't rotate, doesn't wobble, doesn't
-                have satellites. Just sits in speaking-mode visual and grows
-                from 1× → 1.22× during connecting → 3× during dissolving. The
-                page chrome fades in parallel so the orb becomes the entire
-                stage by the time loginRedirect fires.
-
-                No width/height/transformOrigin here on purpose — PastelVoiceOrb
-                renders its outer button at 1.78× size (aura overflow), so the
-                wrapper must shrink-wrap to that natural box. v1 did the same;
-                boxing this to orbSize×orbSize pushed the orb's optical center
-                ~109px below where the absolute headline's items-center landed,
-                which is the "orb drifted off HI" regression. */}
+            {/* Orb — no scaling on handoff, just a fade-out. A short delay
+                lets the chrome rip away first so the orb sits alone for a
+                breath before it shatters into the scramble. */}
             <motion.div
-              animate={{ scale: orbScale }}
+              animate={{ opacity: isConnecting ? 0 : 1 }}
               transition={{
-                duration: phase === "dissolving" ? 1.3 : 0.55,
-                ease: phase === "dissolving" ? [0.42, 0, 0.2, 1] : [0.22, 1, 0.36, 1],
+                duration: 0.4,
+                delay: isConnecting ? 0.18 : 0,
+                ease: [0.22, 1, 0.36, 1],
               }}
               className="relative"
             >
               <PastelVoiceOrb state={orbState} level={effectiveLevel} size={orbSize} />
             </motion.div>
+
+            {/* TYRO scramble overlay — sits absolutely centered over the orb,
+                only materializes during the handoff. Width can spill outside
+                the orb's box (TYRO at display size is wider than the orb) but
+                positioned dead-center so the optical anchor stays the same. */}
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <TyroScramble active={isConnecting} isDark={isDark} />
+            </div>
           </motion.div>
         </div>
 
@@ -629,6 +628,89 @@ export function LoginPage() {
             : "radial-gradient(ellipse 90% 70% at 50% 50%, rgba(255,255,255,0.35) 0%, rgba(245,240,250,0.65) 60%, rgba(235,225,245,0.85) 100%)",
         }}
       />
+    </div>
+  )
+}
+
+// --- TYRO scramble (shatter handoff) ---
+
+const SCRAMBLE_POOL = "!@#$%^&*?<>[]{}_+/\\~=:;"
+const FINAL_LETTERS = ["T", "Y", "R", "O"]
+// How the timeline unfolds once `active` flips true:
+//   0     – 350 ms: nothing rendered (chrome is still tearing out + orb sits)
+//   350   – 750 ms: each cell cycles random glyphs at ~55 ms cadence
+//   750+i*150 ms : cell i locks in its final letter (T, Y, R, O staggered)
+// All 4 cells locked by ~1150 ms; navigate fires at 1800 ms → ~650 ms hold.
+const SCRAMBLE_LEAD_IN = 350
+const SCRAMBLE_BEFORE_FIRST_LOCK = 400
+const SETTLE_STAGGER = 150
+const SCRAMBLE_TICK_MS = 55
+
+function TyroScramble({ active, isDark }) {
+  const [chars, setChars] = useState(["", "", "", ""])
+
+  useEffect(() => {
+    if (!active) {
+      // Reset on deactivation so a re-open of /login starts the scramble
+      // from blanks instead of flashing the previous final TYRO.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setChars(["", "", "", ""])
+      return
+    }
+    const startedAt = Date.now()
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startedAt
+      setChars(
+        FINAL_LETTERS.map((finalChar, i) => {
+          if (elapsed < SCRAMBLE_LEAD_IN) return ""
+          const lockAt = SCRAMBLE_LEAD_IN + SCRAMBLE_BEFORE_FIRST_LOCK + i * SETTLE_STAGGER
+          if (elapsed >= lockAt) return finalChar
+          return SCRAMBLE_POOL[Math.floor(Math.random() * SCRAMBLE_POOL.length)]
+        }),
+      )
+    }, SCRAMBLE_TICK_MS)
+    return () => clearInterval(interval)
+  }, [active])
+
+  return (
+    <div
+      aria-hidden="true"
+      className="select-none font-bold leading-none tracking-tight"
+      style={{
+        fontFamily: '"JetBrains Mono", "Fira Code", "SF Mono", ui-monospace, monospace',
+        fontSize: "clamp(56px, 12vw, 152px)",
+        letterSpacing: "-0.02em",
+      }}
+    >
+      {chars.map((c, i) => {
+        const locked = c === FINAL_LETTERS[i]
+        return (
+          <motion.span
+            key={i}
+            initial={{ opacity: 0, y: 10, scale: 0.8, filter: "blur(8px)" }}
+            animate={
+              active
+                ? { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }
+                : { opacity: 0, filter: "blur(8px)" }
+            }
+            transition={{
+              duration: 0.42,
+              delay: 0.38 + i * 0.05,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+            className="inline-block w-[0.9ch] text-center"
+            style={{
+              color: locked ? "transparent" : isDark ? "rgba(255,255,255,0.88)" : "rgba(26,26,26,0.85)",
+              backgroundImage: locked ? INSTA_GRADIENT : undefined,
+              WebkitBackgroundClip: locked ? "text" : undefined,
+              backgroundClip: locked ? "text" : undefined,
+              transition: "color 240ms ease-out, background-image 240ms ease-out",
+            }}
+          >
+            {c || " "}
+          </motion.span>
+        )
+      })}
     </div>
   )
 }
