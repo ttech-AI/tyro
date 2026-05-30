@@ -402,13 +402,19 @@ export function LoginPage() {
             animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
             transition={{ duration: 1.2, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
             className="relative z-10"
-            style={{ width: orbSize, height: orbSize }}
           >
             {/* Scale wrapper — the orb doesn't rotate, doesn't wobble, doesn't
                 have satellites. Just sits in speaking-mode visual and grows
                 from 1× → 1.22× during connecting → 3× during dissolving. The
                 page chrome fades in parallel so the orb becomes the entire
-                stage by the time loginRedirect fires. */}
+                stage by the time loginRedirect fires.
+
+                No width/height/transformOrigin here on purpose — PastelVoiceOrb
+                renders its outer button at 1.78× size (aura overflow), so the
+                wrapper must shrink-wrap to that natural box. v1 did the same;
+                boxing this to orbSize×orbSize pushed the orb's optical center
+                ~109px below where the absolute headline's items-center landed,
+                which is the "orb drifted off HI" regression. */}
             <motion.div
               animate={{ scale: orbScale }}
               transition={{
@@ -416,7 +422,6 @@ export function LoginPage() {
                 ease: phase === "dissolving" ? [0.45, 0, 0.2, 1] : [0.22, 1, 0.36, 1],
               }}
               className="relative"
-              style={{ width: orbSize, height: orbSize, transformOrigin: "center" }}
             >
               <PastelVoiceOrb state={orbState} level={effectiveLevel} size={orbSize} />
             </motion.div>
