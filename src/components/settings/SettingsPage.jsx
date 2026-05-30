@@ -273,12 +273,15 @@ export function SettingsPage() {
             <TabsTrigger
               key={tabDef.value}
               value={tabDef.value}
+              aria-label={tabDef.label}
               className={cn(
-                // flex-1 makes each segment fill an equal share of the track — active
-                // highlight always anchors to its full cell, no width-jumping between tabs.
-                // min-w-fit keeps long labels readable; if the sum overflows on mobile
-                // the parent's overflow-x-auto kicks in.
-                "group relative flex h-10 min-w-fit flex-1 items-center justify-center gap-2 rounded-xl border-0 bg-transparent px-3 text-[13px] font-medium whitespace-nowrap",
+                // flex-1 makes each segment fill an equal share of the track. On
+                // mobile the labels are HIDDEN — only the icon shows — so all 4
+                // tabs fit at 375px without horizontal scroll. The active tab's
+                // label appears below the track (see ActiveTabLabel) so the
+                // user always sees which page they're on. sm:+ shows icon +
+                // inline label like before.
+                "group relative flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border-0 bg-transparent px-2 text-[13px] font-medium whitespace-nowrap sm:h-10 sm:px-3",
                 "text-muted-foreground transition-all duration-200 ease-out",
                 "hover:text-foreground hover:bg-foreground/[0.04]",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-0",
@@ -294,13 +297,31 @@ export function SettingsPage() {
             >
               <HugeiconsIcon
                 icon={tabDef.icon}
-                className="size-[15px] shrink-0 opacity-70 transition group-data-[state=active]:opacity-100"
+                className="size-[18px] shrink-0 opacity-70 transition group-data-[state=active]:opacity-100 sm:size-[15px]"
                 strokeWidth={1.6}
               />
-              <span className="truncate">{tabDef.label}</span>
+              <span className="hidden truncate sm:inline">{tabDef.label}</span>
             </TabsTrigger>
           ))}
         </TabsList>
+
+        {/* Mobile-only active-tab label below the icon-only track so users
+            always see which page they're on. Hidden on sm+ where labels
+            live inline in the tabs themselves. */}
+        <p
+          className="mt-3 text-center text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground sm:hidden"
+          aria-hidden="true"
+        >
+          {(() => {
+            const labels = {
+              general: t("settings.tabs.general"),
+              agents: t("settings.tabs.agents"),
+              aiApps: t("settings.tabs.aiApps"),
+              businessApps: t("settings.tabs.businessApps"),
+            }
+            return labels[tab]
+          })()}
+        </p>
 
         <TabsContent value="general" className="mt-8">
           <GeneralTab />

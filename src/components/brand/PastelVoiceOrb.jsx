@@ -151,11 +151,20 @@ export function PastelVoiceOrb({
       onClick={onClick}
       aria-label="Pastel voice assistant orb"
       className={cn(
-        "relative grid place-items-center rounded-full bg-transparent outline-none",
+        "relative grid place-items-center rounded-full bg-transparent p-0 outline-none",
+        "appearance-none border-0",
         "focus-visible:ring-2 focus-visible:ring-brand-via/40",
         className,
       )}
-      style={{ width: wrapperSize, height: wrapperSize }}
+      // Mobile defaults: kill iOS Safari's button background-fill and tap
+      // highlight that otherwise render as a visible square behind the orb.
+      style={{
+        width: wrapperSize,
+        height: wrapperSize,
+        WebkitAppearance: "none",
+        WebkitTapHighlightColor: "transparent",
+        background: "transparent",
+      }}
     >
       {/* 2. Outer Aura */}
       <motion.span

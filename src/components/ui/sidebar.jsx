@@ -170,7 +170,13 @@ function Sidebar({
             <SheetTitle>Sidebar</SheetTitle>
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
+          {/* Inner column needs explicit top + bottom safe-area so the
+              header logo isn't hidden behind iOS Dynamic Island / notch
+              and the footer NavUser doesn't sit under the home indicator
+              (which is what the "uygulama avatarın üstüne biniyor"
+              feedback was — the system home-indicator chrome covered the
+              avatar row). */}
+          <div className="flex h-full w-full flex-col pb-safe">{children}</div>
         </SheetContent>
       </Sheet>
     );

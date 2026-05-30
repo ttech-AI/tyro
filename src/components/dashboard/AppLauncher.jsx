@@ -156,7 +156,9 @@ function HeroSection({ onNewChat }) {
               onClick={onNewChat}
               role="button"
               tabIndex={0}
-              className="cursor-pointer"
+              aria-label="Yeni sohbet başlat"
+              className="cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand-via/40"
+              style={{ WebkitTapHighlightColor: "transparent" }}
             >
               <PastelVoiceOrb state="idle" size={isMobile ? 130 : 180} />
             </motion.div>

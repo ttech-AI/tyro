@@ -270,7 +270,7 @@ export function ChatComposer({
             variant="ghost"
             size="icon"
             onClick={openFilePicker}
-            className="size-11 text-muted-foreground hover:text-foreground sm:size-10"
+            className="size-10 text-muted-foreground hover:text-foreground"
             aria-label={t("chat.attach")}
           >
             <HugeiconsIcon icon={Attachment01Icon} className="size-5" />
@@ -278,6 +278,9 @@ export function ChatComposer({
           <AgentSelect value={agent} onChange={onAgentChange} />
         </div>
         <div className="flex items-center gap-1 sm:gap-2">
+          {/* Rich-text toggle — hidden on mobile (ChatGPT/Claude mobile
+              composers omit it too). Stays available on tablet+ where the
+              row has room. */}
           <Button
             type="button"
             variant="ghost"
@@ -286,7 +289,7 @@ export function ChatComposer({
             aria-label={t("chat.format.toggle")}
             aria-pressed={richTextOpen}
             className={cn(
-              "size-11 text-muted-foreground hover:text-foreground sm:size-10",
+              "hidden text-muted-foreground hover:text-foreground sm:inline-flex sm:size-10",
               richTextOpen && "bg-brand-soft/60 text-brand-deep",
             )}
           >
@@ -299,7 +302,7 @@ export function ChatComposer({
             aria-label={t("chat.mic")}
             aria-pressed={micActive}
             className={cn(
-              "size-11 rounded-full text-muted-foreground hover:text-foreground sm:size-10",
+              "size-10 rounded-full text-muted-foreground hover:text-foreground sm:size-10",
               micActive && "bg-brand-soft/60 text-brand-deep",
             )}
           >
@@ -311,7 +314,7 @@ export function ChatComposer({
             disabled={disabled || !hasContent}
             aria-label={t("chat.send")}
             className={cn(
-              "size-11 rounded-full bg-gradient-to-br from-brand-from via-brand-via to-brand-to p-0 text-white shadow-sm sm:size-10",
+              "size-10 rounded-full bg-gradient-to-br from-brand-from via-brand-via to-brand-to p-0 text-white shadow-sm sm:size-10",
               "duration-200 ease-linear hover:brightness-110 hover:text-white",
               "disabled:opacity-40 disabled:cursor-not-allowed",
             )}
