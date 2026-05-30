@@ -50,6 +50,12 @@ const headlineLetter = {
     filter: "blur(0px)",
     transition: { duration: 0.9, ease: [0.22, 1, 0.36, 1] },
   },
+  exit: {
+    opacity: 0,
+    y: -12,
+    filter: "blur(12px)",
+    transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
+  },
 }
 
 export function LoginPage() {
@@ -76,6 +82,15 @@ export function LoginPage() {
 
   const isDark = theme === "dark"
   const isSpinning = phase === "connecting" || phase === "dissolving"
+  // Same boolean, named for what it drives in the JSX: when true, all chrome
+  // (header, headline, tagline, CTA, footer) fades out and the orb takes
+  // the whole stage and grows.
+  const isConnecting = isSpinning
+  // How much the orb scales during the handoff. Subtle bump during connecting
+  // (1.25×) → dramatic bloom during dissolving (3×) so the last beat reads
+  // as "the orb is the portal", then loginRedirect fires.
+  const orbScale =
+    phase === "dissolving" ? (isMobile ? 2.4 : 3) : phase === "connecting" ? 1.22 : 1
   const orbState = isSpinning
     ? "thinking"
     : isSpeaking
@@ -266,17 +281,32 @@ export function LoginPage() {
         />
       )}
 
-      {/* Border frame */}
-      <div aria-hidden="true" className={cn("pointer-events-none absolute left-0 right-0 top-[76px] h-px sm:top-[92px]", isDark ? "bg-white/10" : "bg-black/10")} />
-      <div aria-hidden="true" className={cn("pointer-events-none absolute left-0 right-0 bottom-[48px] h-px sm:bottom-[56px]", isDark ? "bg-white/10" : "bg-black/10")} />
-      <div aria-hidden="true" className={cn("pointer-events-none absolute left-0 top-0 bottom-0 w-px", isDark ? "bg-white/[0.06]" : "bg-black/[0.06]")} />
-      <div aria-hidden="true" className={cn("pointer-events-none absolute right-0 top-0 bottom-0 w-px", isDark ? "bg-white/[0.06]" : "bg-black/[0.06]")} />
+      {/* Border frame — also fades during handoff so the stage is just the orb. */}
+      <motion.div
+        aria-hidden="true"
+        animate={{ opacity: isConnecting ? 0 : 1 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        className="pointer-events-none absolute inset-0"
+      >
+        <div className={cn("absolute left-0 right-0 top-[76px] h-px sm:top-[92px]", isDark ? "bg-white/10" : "bg-black/10")} />
+        <div className={cn("absolute left-0 right-0 bottom-[48px] h-px sm:bottom-[56px]", isDark ? "bg-white/10" : "bg-black/10")} />
+        <div className={cn("absolute left-0 top-0 bottom-0 w-px", isDark ? "bg-white/[0.06]" : "bg-black/[0.06]")} />
+        <div className={cn("absolute right-0 top-0 bottom-0 w-px", isDark ? "bg-white/[0.06]" : "bg-black/[0.06]")} />
+      </motion.div>
 
-      {/* TOP bar (in-flow, shrink-0) */}
+      {/* TOP bar (in-flow, shrink-0) — fades out during the handoff so only
+          the orb remains on the stage. */}
       <motion.header
         initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        animate={
+          isConnecting
+            ? { opacity: 0, y: -8, filter: "blur(6px)" }
+            : { opacity: 1, y: 0, filter: "blur(0px)" }
+        }
+        transition={{
+          duration: isConnecting ? 0.42 : 0.8,
+          ease: [0.22, 1, 0.36, 1],
+        }}
         className="relative z-20 flex h-[76px] shrink-0 items-center justify-between px-4 sm:h-[92px] sm:px-10 lg:px-14"
       >
         {/* Brand block left */}
@@ -326,7 +356,7 @@ export function LoginPage() {
         <div className="relative flex w-full items-center justify-center">
           <motion.h1
             initial="hidden"
-            animate="visible"
+            animate={isConnecting ? "exit" : "visible"}
             variants={headlineParent}
             aria-label="HI, I'M TYRO"
             className="pointer-events-none absolute inset-x-0 select-none text-center"
@@ -371,7 +401,14 @@ export function LoginPage() {
               like Earth's 23.5° tilt). A static directional shading overlay
               keeps the sphere optically anchored so the spin doesn't read as
               a coin flip. Orbital ring + two satellites give the outer-depth
-              cue that confirms "this is a globe rotating, not a disc". */}
+              cue that confirms "this is a globe rotating, not a disc".
+
+              The handoff choreography uses a second motion.div INSIDE this
+              wrapper to scale the whole orb up — 1× idle → 1.22× connecting
+              → 3× dissolving — so by the time loginRedirect fires the orb has
+              taken over the stage. Page chrome (header / headline / tagline /
+              CTA / footer) fades out in parallel, leaving the orb as the sole
+              focal point. */}
           <motion.div
             initial={{ opacity: 0, scale: 0.7, filter: "blur(20px)" }}
             animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
@@ -379,6 +416,17 @@ export function LoginPage() {
             className="relative z-10"
             style={{ width: orbSize, height: orbSize, perspective: 1200 }}
           >
+            {/* Scale wrapper — drives the orb-takes-over-the-stage growth.
+                Separate from the rotation wrapper so the easings don't fight. */}
+            <motion.div
+              animate={{ scale: orbScale }}
+              transition={{
+                duration: phase === "dissolving" ? 0.9 : 0.55,
+                ease: phase === "dissolving" ? [0.45, 0, 0.2, 1] : [0.22, 1, 0.36, 1],
+              }}
+              className="relative"
+              style={{ width: orbSize, height: orbSize, transformOrigin: "center" }}
+            >
             <motion.div
               animate={
                 isSpinning
@@ -469,11 +517,19 @@ export function LoginPage() {
                 </motion.div>
               )}
             </AnimatePresence>
+            </motion.div>
           </motion.div>
         </div>
 
-        {/* Tagline + CTA */}
-        <div
+        {/* Tagline + CTA — both fade out together when the handoff starts so
+            only the orb remains on the stage. */}
+        <motion.div
+          animate={
+            isConnecting
+              ? { opacity: 0, y: 12, filter: "blur(6px)" }
+              : { opacity: 1, y: 0, filter: "blur(0px)" }
+          }
+          transition={{ duration: isConnecting ? 0.38 : 0.55, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
             "relative z-10 flex flex-col items-center text-center",
             isShortHeight
@@ -531,14 +587,22 @@ export function LoginPage() {
               isDark={isDark}
             />
           </motion.div>
-        </div>
+        </motion.div>
       </main>
 
-      {/* Footer */}
+      {/* Footer — fades out with the rest of the chrome during the handoff. */}
       <motion.footer
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.6, delay: 1.5 }}
+        animate={
+          isConnecting
+            ? { opacity: 0, y: 6, filter: "blur(4px)" }
+            : { opacity: 1, y: 0, filter: "blur(0px)" }
+        }
+        transition={{
+          duration: isConnecting ? 0.4 : 0.6,
+          delay: isConnecting ? 0 : 1.5,
+          ease: [0.22, 1, 0.36, 1],
+        }}
         className="relative z-10 flex h-[48px] shrink-0 items-center justify-center px-3 sm:h-[56px] sm:px-10"
       >
         <p className={cn("text-center text-[9px] tracking-[0.04em] sm:text-[11px]", isDark ? "text-[#D7E2EA]/50" : "text-[#1a1a1a]/45")}>
@@ -546,80 +610,36 @@ export function LoginPage() {
         </p>
       </motion.footer>
 
-      {/* Corporate transition — deep navy wash, text-led, no logo splash.
-          Stripe / Microsoft 365 / Linear pattern: the page they came from
-          owned the brand mark; this 500ms handoff just confirms the system
-          is authenticating. No saturated colors, no logo, no bouncing dots. */}
-      <AnimatePresence>
-        {phase === "dissolving" && (
-          <motion.div
-            key="corporate-wash"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            // No pointer-events-none — the page is mid-redirect and shouldn't
-            // accept clicks on the header controls underneath. The overlay
-            // covers the viewport completely, so blocking input is correct.
-            className="fixed inset-0 z-50 grid place-items-center bg-[#0a1628]"
-            aria-live="polite"
-            aria-busy="true"
-          >
-            {/* Whisper-quiet purple depth glow — keeps the brand thread without
-                tipping into pastel. 14% opacity at the center, fades by 70%. */}
-            <div
-              aria-hidden="true"
-              className="absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(ellipse 80% 60% at 50% 45%, rgba(129,52,175,0.14) 0%, rgba(129,52,175,0.04) 35%, transparent 70%)",
-              }}
-            />
+      {/* Screen-reader announcement for the handoff — visually hidden so the
+          orb stays the sole focal point but assistive tech still hears that
+          the system is authenticating. */}
+      {isConnecting && (
+        <span className="sr-only" aria-live="polite" aria-busy="true">
+          {t("login.connectingTitle")}
+        </span>
+      )}
 
-            {/* Indeterminate hairline progress at the top — Stripe-style.
-                White at low opacity, with a moving highlight that travels
-                left→right on a 1.4s loop. Replaces the previous saturated
-                Insta-gradient stripe which read as Tumblr SaaS. */}
-            <div
-              aria-hidden="true"
-              className="absolute left-0 right-0 top-0 h-px overflow-hidden bg-white/10"
-            >
-              <motion.div
-                className="absolute left-0 top-0 h-full w-[28%] bg-white/55"
-                animate={{ x: ["-100%", "380%"] }}
-                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-              />
-            </div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
-              className="relative z-10 flex flex-col items-center gap-5 px-6"
-            >
-              <p
-                className="text-[13px] font-medium text-white/80 sm:text-sm"
-                style={{ letterSpacing: "0.04em" }}
-              >
-                {t("login.connectingTitle")}
-              </p>
-              {/* Sliding bar — singular, restrained. Matches the top hairline
-                  motion, gives a clear "operating" signal without typing-
-                  indicator vibes. */}
-              <div
-                aria-hidden="true"
-                className="relative h-px w-40 overflow-hidden bg-white/10"
-              >
-                <motion.div
-                  className="absolute left-0 top-0 h-full w-1/3 bg-white/70"
-                  animate={{ x: ["-100%", "300%"] }}
-                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-                />
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Backdrop dim — fades in as the orb grows so the orb's pastel bloom
+          reads brighter against a slightly darker stage. Sits BEHIND the orb
+          (z-0) so the orb stays the focal point. No text, no spinner, no
+          logo — the orb itself is the transition. */}
+      <motion.div
+        aria-hidden="true"
+        animate={{
+          opacity:
+            phase === "dissolving" ? 1 : phase === "connecting" ? 0.35 : 0,
+        }}
+        transition={{
+          duration: phase === "dissolving" ? 0.7 : 0.5,
+          ease: [0.22, 1, 0.36, 1],
+        }}
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{
+          background: isDark
+            ? "radial-gradient(ellipse 90% 70% at 50% 50%, rgba(10,22,40,0.55) 0%, rgba(10,22,40,0.85) 60%, rgba(10,22,40,0.95) 100%)"
+            : "radial-gradient(ellipse 90% 70% at 50% 50%, rgba(255,255,255,0.35) 0%, rgba(245,240,250,0.65) 60%, rgba(235,225,245,0.85) 100%)",
+        }}
+      />
     </div>
   )
 }
