@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "motion/react"
 import { useMsal } from "@azure/msal-react"
@@ -8,11 +8,6 @@ import { ArrowRight02Icon, Moon02Icon, Sun03Icon, VolumeHighIcon, VolumeMute02Ic
 import { TyroLogo } from "@/components/brand/TyroLogo"
 import { PastelVoiceOrb } from "@/components/brand/PastelVoiceOrb"
 import { useLocale } from "@/hooks/useLocale"
-
-// Three.js globe is lazy-loaded (~600 KB chunk) so it doesn't block first paint.
-// While it streams, the regular PastelVoiceOrb keeps showing.
-const loadGlobe3D = () => import("@/components/brand/Globe3D")
-const Globe3D = lazy(loadGlobe3D)
 import { useTheme } from "@/hooks/useTheme"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { isMsalConfigured, loginRequest, MOCK_LOGGED_IN_KEY } from "@/lib/msal"
@@ -96,14 +91,6 @@ export function LoginPage() {
       setTheme("light")
       setLocale("tr")
       window.localStorage.setItem(LOGIN_INIT_FLAG, "1")
-    }
-    // Warm the Three.js chunk while the user reads the page so the globe is
-    // ready the instant they click Connect — avoids the first-click Suspense
-    // fallback flicker (orb → orb-fallback → globe pop).
-    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-      window.requestIdleCallback(() => loadGlobe3D(), { timeout: 2000 })
-    } else {
-      setTimeout(loadGlobe3D, 800)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -378,52 +365,107 @@ export function LoginPage() {
             </motion.span>
           </motion.h1>
 
-          {/* Orb container — PastelVoiceOrb for idle/listening/speaking; swaps
-              to a real Three.js sphere during connecting/dissolving so the
-              spin reads as a globe rotating on its Y axis, not a 2D spinner. */}
+          {/* Orb container — the orb visual NEVER changes. During connecting
+              we wrap it in a 3D-perspective transform: rotateZ continuous (the
+              "spin axis") + small rotateY/rotateX oscillation ("axial wobble"
+              like Earth's 23.5° tilt). A static directional shading overlay
+              keeps the sphere optically anchored so the spin doesn't read as
+              a coin flip. Orbital ring + two satellites give the outer-depth
+              cue that confirms "this is a globe rotating, not a disc". */}
           <motion.div
             initial={{ opacity: 0, scale: 0.7, filter: "blur(20px)" }}
-            animate={{
-              opacity: 1,
-              scale: 1,
-              filter: "blur(0px)",
-            }}
+            animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
             transition={{ duration: 1.2, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
             className="relative z-10"
-            style={{ width: orbSize, height: orbSize }}
+            style={{ width: orbSize, height: orbSize, perspective: 1200 }}
           >
-            {/* mode='sync' so the exiting 2D orb and entering 3D globe overlap
-                during the crossfade — 'wait' produced a 350-450ms blank window
-                at the orb position between exit and enter. Both motion.divs are
-                absolute-positioned so layout doesn't jump. */}
-            <AnimatePresence mode="sync" initial={false}>
-              {isSpinning ? (
-                <motion.div
-                  key="globe3d"
-                  initial={{ opacity: 0, scale: 0.94 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                  className="absolute inset-0"
-                >
-                  <Suspense
-                    fallback={
-                      <PastelVoiceOrb state="thinking" level={0} size={orbSize} />
+            <motion.div
+              animate={
+                isSpinning
+                  ? {
+                      rotateZ: 360,
+                      rotateY: [-10, 10, -10],
+                      rotateX: [3, -3, 3],
                     }
-                  >
-                    <Globe3D size={orbSize} spinning isMobile={isMobile} />
-                  </Suspense>
-                </motion.div>
-              ) : (
+                  : { rotateZ: 0, rotateY: 0, rotateX: 0 }
+              }
+              transition={
+                isSpinning
+                  ? {
+                      rotateZ: { duration: 4.5, repeat: Infinity, ease: "linear" },
+                      rotateY: { duration: 3.6, repeat: Infinity, ease: "easeInOut" },
+                      rotateX: { duration: 5.2, repeat: Infinity, ease: "easeInOut" },
+                    }
+                  : { duration: 0.6, ease: [0.22, 1, 0.36, 1] }
+              }
+              style={{ transformStyle: "preserve-3d", width: orbSize, height: orbSize }}
+              className="relative"
+            >
+              <PastelVoiceOrb state={orbState} level={effectiveLevel} size={orbSize} />
+
+              {/* Sphere depth shading — counter-rotates with the orb's spin so
+                  the highlight + shadow stay fixed in screen space, giving the
+                  illusion that the orb is a 3D ball with a stable light source.
+                  Without this the spin would read as 2D (everything moves). */}
+              <AnimatePresence>
+                {isSpinning && (
+                  <motion.div
+                    key="sphere-shading"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1, rotate: -360 }}
+                    exit={{ opacity: 0 }}
+                    transition={{
+                      opacity: { duration: 0.4 },
+                      rotate: { duration: 4.5, repeat: Infinity, ease: "linear" },
+                    }}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 rounded-full"
+                    style={{
+                      background:
+                        "radial-gradient(circle at 30% 28%, rgba(255,255,255,0.22) 0%, transparent 38%), radial-gradient(circle at 72% 78%, rgba(10,10,20,0.32) 0%, transparent 55%)",
+                      mixBlendMode: "soft-light",
+                    }}
+                  />
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+            {/* Orbital ring + 2 satellites — counter-rotate slower for depth
+                contrast. Only visible during connect. */}
+            <AnimatePresence>
+              {isSpinning && (
                 <motion.div
-                  key="orb-2d"
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-                  className="absolute inset-0"
+                  key="orbital-ring"
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ opacity: 1, scale: 1, rotate: -360 }}
+                  exit={{ opacity: 0, scale: 0.92 }}
+                  transition={{
+                    opacity: { duration: 0.4 },
+                    scale: { duration: 0.4 },
+                    rotate: { duration: 6, repeat: Infinity, ease: "linear" },
+                  }}
+                  className="pointer-events-none absolute inset-0 z-20"
                 >
-                  <PastelVoiceOrb state={orbState} level={effectiveLevel} size={orbSize} />
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-[4%] rounded-full border border-white/12"
+                  />
+                  <div
+                    aria-hidden="true"
+                    className="absolute left-1/2 top-[4%] -ml-[5px] size-2.5 rounded-full bg-white"
+                    style={{
+                      boxShadow:
+                        "0 0 10px 3px rgba(255,255,255,0.65), 0 0 22px 7px rgba(221,42,123,0.4)",
+                    }}
+                  />
+                  <div
+                    aria-hidden="true"
+                    className="absolute left-1/2 bottom-[4%] -ml-[3px] size-1.5 rounded-full bg-[#feda77]"
+                    style={{
+                      boxShadow:
+                        "0 0 8px 3px rgba(254,218,119,0.7), 0 0 18px 5px rgba(129,52,175,0.35)",
+                    }}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
