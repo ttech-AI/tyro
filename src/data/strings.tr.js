@@ -206,6 +206,7 @@ export const strings = {
   "chat.format.underline": "Altı çizili",
   "chat.format.bulletList": "Maddeli liste",
   "chat.mic": "Sesli komut",
+  "chat.mic.listeningPlaceholder": "Dinleniyor… konuşmaya başlayın",
   "chat.mic.start": "Sesli yazdırmayı başlat",
   "chat.mic.stop": "Sesli yazdırmayı durdur",
   "chat.mic.unsupported": "Bu tarayıcı sesli yazdırmayı desteklemiyor",

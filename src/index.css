@@ -751,6 +751,46 @@
   .mic-listening-pulse { animation: none; opacity: 0; }
 }
 
+/* ── Mic listening equalizer bars ──────────────────────────────────
+   Replaces the static mic icon while the recognizer is active so the
+   user has a strong "I am being heard" signal. 4 vertical bars bounce
+   on a staggered cycle; reduced-motion users get a static mid-height
+   row so the affordance is still visually distinct from the idle icon. */
+.mic-bars {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 18px;
+  width: 18px;
+}
+.mic-bars > span {
+  width: 2px;
+  height: 90%;
+  background: currentColor;
+  border-radius: 1px;
+  display: inline-block;
+  transform: scaleY(0.3);
+  transform-origin: center;
+  animation: mic-bars-bounce 1.1s ease-in-out infinite;
+}
+.mic-bars > span:nth-child(1) { animation-delay: -0.45s; }
+.mic-bars > span:nth-child(2) { animation-delay: -0.15s; }
+.mic-bars > span:nth-child(3) { animation-delay: -0.30s; }
+.mic-bars > span:nth-child(4) { animation-delay: 0s; }
+
+/* transform-only animation — Layout/Paint stays out, only Composite. */
+@keyframes mic-bars-bounce {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mic-bars > span {
+    animation: none;
+    transform: scaleY(0.6);
+  }
+}
+
 /* ── Scrollbars — premium chrome treatment ─────────────────────────
    8 px pill thumb on a transparent track, color-mixed from --foreground
    so it inherits light/dark theme and palette swaps automatically.

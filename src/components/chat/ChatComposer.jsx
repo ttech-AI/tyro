@@ -337,7 +337,17 @@ export function ChatComposer({
           value={value}
           onChange={(e) => onChange?.(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={t("chat.placeholder")}
+          placeholder={
+            // While listening: show a dedicated hint UNTIL the interim
+            // overlay starts rendering words, then clear it so the
+            // overlay's transcript has the field to itself (the muted
+            // placeholder + muted interim were clashing).
+            speech.isListening
+              ? speech.interim
+                ? ""
+                : t("chat.mic.listeningPlaceholder")
+              : t("chat.placeholder")
+          }
           rows={2}
           inputMode="text"
           enterKeyHint="send"
@@ -423,10 +433,22 @@ export function ChatComposer({
                 "opacity-50 cursor-not-allowed hover:text-muted-foreground",
             )}
           >
-            <HugeiconsIcon
-              icon={speech.isSupported ? Mic01Icon : MicOff01Icon}
-              className="relative z-[1] size-[18px]"
-            />
+            {speech.isListening ? (
+              // Animated equalizer bars during listening — stronger "I'm
+              // recording" affordance than a static mic icon. Same hit
+              // target; click again to stop.
+              <span aria-hidden="true" className="mic-bars relative z-[1]">
+                <span />
+                <span />
+                <span />
+                <span />
+              </span>
+            ) : (
+              <HugeiconsIcon
+                icon={speech.isSupported ? Mic01Icon : MicOff01Icon}
+                className="relative z-[1] size-[18px]"
+              />
+            )}
             {speech.isListening && (
               <span aria-hidden="true" className="mic-listening-pulse" />
             )}

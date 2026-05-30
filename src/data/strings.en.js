@@ -206,6 +206,7 @@ export const strings = {
   "chat.format.underline": "Underline",
   "chat.format.bulletList": "Bullet list",
   "chat.mic": "Voice command",
+  "chat.mic.listeningPlaceholder": "Listening… start speaking",
   "chat.mic.start": "Start voice dictation",
   "chat.mic.stop": "Stop voice dictation",
   "chat.mic.unsupported": "This browser doesn't support voice dictation",
