@@ -256,7 +256,13 @@ export function SettingsPage() {
             // subtle inset shadow ONLY — no border — so the single visible frame is the
             // floating active thumb (see TabsTrigger). A track border here would compete
             // with the thumb and read as two clashing frames.
-            "h-auto w-full rounded-2xl bg-muted/60 p-1",
+            //
+            // p-2 (8px) gives the active thumb visible breathing room on all four
+            // sides — without it the thumb's drop shadow grazed the track edge and
+            // read as the two frames clashing. rounded-3xl keeps the corner geometry
+            // consistent: inner radius (24 − 8 = 16 px) leaves a clean 4 px gap
+            // around the thumb's 12 px corners instead of cropping them.
+            "h-auto w-full rounded-3xl bg-muted/60 p-2",
             "shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)]",
             "flex gap-1",
             "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
