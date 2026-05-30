@@ -239,7 +239,11 @@ export function ChatScreen({ onReset, initialAgent }) {
   // on iOS Safari. Root uses h-full to inherit from DashboardLayout's main,
   // which itself is flex-1 of the viewport.
   return (
-    <div className="mx-auto flex h-full w-full max-w-4xl flex-1 flex-col px-3 pt-2 sm:px-4 sm:pt-3">
+    // min-h-0 + h-full lock the chat shell to its parent's height so the
+    // flex-1 scroller below cannot grow taller than the viewport. Without
+    // min-h-0, 10+ messages push this column past 100dvh and the WHOLE
+    // page starts scrolling — the chat header and composer disappear.
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-4xl flex-1 flex-col px-3 pt-2 sm:px-4 sm:pt-3">
       {/* Row 1 — header */}
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 pb-3">
         <div className="flex min-w-0 items-center gap-2">

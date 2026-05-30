@@ -33,10 +33,19 @@ export function DashboardLayout({ children, activeId, onActiveIdChange, onNewCha
           // disappears behind the system clock. Browser-tab visits get
           // insets=0, so nothing changes there.
           "pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:pt-0 md:pb-0",
+          // `min-h-0` so this flex-1 child cannot push the parent past its
+          // bounds when nested scrollers (chat thread, settings list) have
+          // taller content than the viewport. Without it, the chat header /
+          // composer scroll off-screen with the page.
+          "min-h-0",
         )}
       >
         <Header activeId={activeId} onOpenSearch={() => setSearchOpen(true)} />
-        <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+        {/* min-h-0 here too — main is a flex-1 inside SidebarInset, same
+            principle. Together with the chat root's min-h-0 (in ChatScreen)
+            this makes the flex chain strictly bounded so only the chat
+            scroller scrolls, never the page. */}
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</main>
       </SidebarInset>
       <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
     </SidebarProvider>

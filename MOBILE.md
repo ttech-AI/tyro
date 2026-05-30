@@ -251,6 +251,47 @@ keyboard.
 
 ---
 
+## 11. Chat / scroll-region layouts: `min-h-0` on EVERY `flex-1` ancestor
+
+**Why.** In a CSS flex column, every `flex-1` child defaults to `min-height:
+auto` — meaning its minimum height equals its content's height. If the
+inner content (a message list, a long form, a settings inventory) is
+taller than the viewport, the flex-1 child can't shrink below its content
+size and pushes the parent past its bounds. The result on a chat screen:
+the WHOLE page starts scrolling — header, composer, sidebar trigger all
+slide off the viewport — instead of only the message thread scrolling.
+
+The fix is `min-height: 0` (Tailwind `min-h-0`) on every `flex-1`
+ancestor between the chat scroller and the viewport root. It tells flex
+"yes, you ARE allowed to shrink this child below its content height —
+the scroller's overflow-y-auto will handle the overflow".
+
+Concrete chain in this app (top to bottom):
+
+```
+SidebarProvider  (h-svh)
+  └ SidebarInset  (flex-1 min-h-0)   ← min-h-0 REQUIRED
+     └ Header (shrink-0)
+     └ main  (flex-1 min-h-0)        ← min-h-0 REQUIRED
+        └ ChatScreen  (flex-1 min-h-0) ← min-h-0 REQUIRED
+           └ chat-header (shrink-0)
+           └ scroller  (flex-1 min-h-0 overflow-y-auto)  ← THE scroll region
+           └ composer (shrink-0)
+```
+
+The canonical 3-row chat shell is `shrink-0 header / flex-1 min-h-0
+overflow-y-auto scroller / shrink-0 composer`. Anything wrapping that
+shell — and anything wrapping THAT wrapper, up to the viewport root —
+must propagate `min-h-0`.
+
+**How to verify.** Open chat on mobile, send 10+ messages. Try to scroll
+DOWN further from the latest bubble. If the WHOLE page scrolls (sidebar
+trigger / dashboard header disappear upward), some ancestor in the
+flex-1 chain is missing `min-h-0`. Trace from the chat scroller upward
+until you find the unbounded link.
+
+---
+
 ## Anti-patterns — DON'T
 
 - ❌ `<meta name="viewport" content="... maximum-scale=1, user-scalable=no">`
