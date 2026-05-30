@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { motion, AnimatePresence } from "motion/react"
+import { motion } from "motion/react"
 import { useMsal } from "@azure/msal-react"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -91,8 +91,11 @@ export function LoginPage() {
   // as "the orb is the portal", then loginRedirect fires.
   const orbScale =
     phase === "dissolving" ? (isMobile ? 2.4 : 3) : phase === "connecting" ? 1.22 : 1
+  // On Connect: orb stays still and just plays the speaking-mode visual.
+  // The handoff effect comes from the page chrome fading and the orb scaling
+  // up — no rotation, no orbital satellites, no axial wobble.
   const orbState = isSpinning
-    ? "thinking"
+    ? "speaking"
     : isSpeaking
       ? "speaking"
       : phase === "listening"
@@ -344,14 +347,7 @@ export function LoginPage() {
       </motion.header>
 
       {/* MAIN STAGE (fills remaining viewport between header and footer) */}
-      <main
-        className={cn(
-          "relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center px-4 sm:px-10",
-          // Bias the centered column upward (extra bottom padding) so the tagline + CTA
-          // don't crowd the footer. Short viewports stay near-symmetric to avoid clipping.
-          isShortHeight ? "pt-4 pb-8 sm:pt-6 sm:pb-12" : "pt-6 pb-20 sm:pt-8 sm:pb-28",
-        )}
-      >
+      <main className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-6 sm:px-10 sm:py-10">
         {/* Stage: headline behind, orb on top */}
         <div className="relative flex w-full items-center justify-center">
           <motion.h1
@@ -395,128 +391,34 @@ export function LoginPage() {
             </motion.span>
           </motion.h1>
 
-          {/* Orb container — the orb visual NEVER changes. During connecting
-              we wrap it in a 3D-perspective transform: rotateZ continuous (the
-              "spin axis") + small rotateY/rotateX oscillation ("axial wobble"
-              like Earth's 23.5° tilt). A static directional shading overlay
-              keeps the sphere optically anchored so the spin doesn't read as
-              a coin flip. Orbital ring + two satellites give the outer-depth
-              cue that confirms "this is a globe rotating, not a disc".
-
-              The handoff choreography uses a second motion.div INSIDE this
-              wrapper to scale the whole orb up — 1× idle → 1.22× connecting
-              → 3× dissolving — so by the time loginRedirect fires the orb has
-              taken over the stage. Page chrome (header / headline / tagline /
-              CTA / footer) fades out in parallel, leaving the orb as the sole
-              focal point. */}
+          {/* Orb container — entrance fade-in for first paint, then the inner
+              scale wrapper drives the connect handoff (1× → 1.22× → 3×). The
+              orb itself sits in speaking-mode visual the whole time; no
+              rotation, no satellites, no axial wobble. Page chrome fades out
+              in parallel so the orb is the sole focal point by the time
+              loginRedirect fires. */}
           <motion.div
             initial={{ opacity: 0, scale: 0.7, filter: "blur(20px)" }}
             animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
             transition={{ duration: 1.2, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
             className="relative z-10"
-            style={{ width: orbSize, height: orbSize, perspective: 1200 }}
+            style={{ width: orbSize, height: orbSize }}
           >
-            {/* Scale wrapper — drives the orb-takes-over-the-stage growth.
-                Separate from the rotation wrapper so the easings don't fight. */}
+            {/* Scale wrapper — the orb doesn't rotate, doesn't wobble, doesn't
+                have satellites. Just sits in speaking-mode visual and grows
+                from 1× → 1.22× during connecting → 3× during dissolving. The
+                page chrome fades in parallel so the orb becomes the entire
+                stage by the time loginRedirect fires. */}
             <motion.div
               animate={{ scale: orbScale }}
               transition={{
-                duration: phase === "dissolving" ? 0.9 : 0.55,
+                duration: phase === "dissolving" ? 0.95 : 0.55,
                 ease: phase === "dissolving" ? [0.45, 0, 0.2, 1] : [0.22, 1, 0.36, 1],
               }}
               className="relative"
               style={{ width: orbSize, height: orbSize, transformOrigin: "center" }}
             >
-            <motion.div
-              animate={
-                isSpinning
-                  ? {
-                      rotateZ: 360,
-                      rotateY: [-10, 10, -10],
-                      rotateX: [3, -3, 3],
-                    }
-                  : { rotateZ: 0, rotateY: 0, rotateX: 0 }
-              }
-              transition={
-                isSpinning
-                  ? {
-                      rotateZ: { duration: 4.5, repeat: Infinity, ease: "linear" },
-                      rotateY: { duration: 3.6, repeat: Infinity, ease: "easeInOut" },
-                      rotateX: { duration: 5.2, repeat: Infinity, ease: "easeInOut" },
-                    }
-                  : { duration: 0.6, ease: [0.22, 1, 0.36, 1] }
-              }
-              style={{ transformStyle: "preserve-3d", width: orbSize, height: orbSize }}
-              className="relative"
-            >
               <PastelVoiceOrb state={orbState} level={effectiveLevel} size={orbSize} />
-
-              {/* Sphere depth shading — counter-rotates with the orb's spin so
-                  the highlight + shadow stay fixed in screen space, giving the
-                  illusion that the orb is a 3D ball with a stable light source.
-                  Without this the spin would read as 2D (everything moves). */}
-              <AnimatePresence>
-                {isSpinning && (
-                  <motion.div
-                    key="sphere-shading"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1, rotate: -360 }}
-                    exit={{ opacity: 0 }}
-                    transition={{
-                      opacity: { duration: 0.4 },
-                      rotate: { duration: 4.5, repeat: Infinity, ease: "linear" },
-                    }}
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 rounded-full"
-                    style={{
-                      background:
-                        "radial-gradient(circle at 30% 28%, rgba(255,255,255,0.22) 0%, transparent 38%), radial-gradient(circle at 72% 78%, rgba(10,10,20,0.32) 0%, transparent 55%)",
-                      mixBlendMode: "soft-light",
-                    }}
-                  />
-                )}
-              </AnimatePresence>
-            </motion.div>
-
-            {/* Orbital ring + 2 satellites — counter-rotate slower for depth
-                contrast. Only visible during connect. */}
-            <AnimatePresence>
-              {isSpinning && (
-                <motion.div
-                  key="orbital-ring"
-                  initial={{ opacity: 0, scale: 0.92 }}
-                  animate={{ opacity: 1, scale: 1, rotate: -360 }}
-                  exit={{ opacity: 0, scale: 0.92 }}
-                  transition={{
-                    opacity: { duration: 0.4 },
-                    scale: { duration: 0.4 },
-                    rotate: { duration: 6, repeat: Infinity, ease: "linear" },
-                  }}
-                  className="pointer-events-none absolute inset-0 z-20"
-                >
-                  <div
-                    aria-hidden="true"
-                    className="absolute inset-[4%] rounded-full border border-white/12"
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="absolute left-1/2 top-[4%] -ml-[5px] size-2.5 rounded-full bg-white"
-                    style={{
-                      boxShadow:
-                        "0 0 10px 3px rgba(255,255,255,0.65), 0 0 22px 7px rgba(221,42,123,0.4)",
-                    }}
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="absolute left-1/2 bottom-[4%] -ml-[3px] size-1.5 rounded-full bg-[#feda77]"
-                    style={{
-                      boxShadow:
-                        "0 0 8px 3px rgba(254,218,119,0.7), 0 0 18px 5px rgba(129,52,175,0.35)",
-                    }}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
             </motion.div>
           </motion.div>
         </div>
@@ -533,8 +435,8 @@ export function LoginPage() {
           className={cn(
             "relative z-10 flex flex-col items-center text-center",
             isShortHeight
-              ? "mt-6 gap-4 sm:mt-8 sm:gap-5"
-              : "mt-8 gap-5 sm:mt-14 sm:gap-7",
+              ? "mt-8 gap-4 sm:mt-10 sm:gap-5"
+              : "mt-10 gap-5 sm:mt-16 sm:gap-7",
           )}
         >
           <motion.div
