@@ -1,4 +1,4 @@
-import { createContext, useEffect, useState } from "react"
+import { createContext, useCallback, useEffect, useMemo, useState } from "react"
 
 const STORAGE_KEY = "tyro-theme"
 const VALID = ["light", "dark"]
@@ -21,12 +21,23 @@ export function ThemeProvider({ children }) {
     window.localStorage.setItem(STORAGE_KEY, theme)
   }, [theme])
 
-  const setTheme = (next) => setThemeState(VALID.includes(next) ? next : "light")
-  const toggle = () => setThemeState((t) => (t === "dark" ? "light" : "dark"))
+  // useCallback so the context value's setTheme / toggle references stay
+  // stable. Without these, the useMemo below would still produce a new
+  // object every render (since setTheme/toggle would be fresh closures),
+  // defeating the memoization for every consumer.
+  const setTheme = useCallback((next) => {
+    setThemeState(VALID.includes(next) ? next : "light")
+  }, [])
+  const toggle = useCallback(() => {
+    setThemeState((t) => (t === "dark" ? "light" : "dark"))
+  }, [])
 
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggle }}>
-      {children}
-    </ThemeContext.Provider>
+  // Memoize the context value object so the only reason consumers re-render
+  // is an actual theme change, not a parent re-render of <ThemeProvider>.
+  const value = useMemo(
+    () => ({ theme, setTheme, toggle }),
+    [theme, setTheme, toggle],
   )
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }
