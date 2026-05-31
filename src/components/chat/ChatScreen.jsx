@@ -11,6 +11,7 @@ import { useLocale } from "@/hooks/useLocale"
 import { useConfig } from "@/hooks/useConfig"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useMe } from "@/hooks/useMe"
+import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis"
 import { loadMessages, saveMessages, clearMessages } from "@/lib/chatPersistence"
 import { cn } from "@/lib/utils"
 
@@ -33,7 +34,7 @@ function makeId() {
 const NEAR_BOTTOM_THRESHOLD_PX = 120
 
 export function ChatScreen({ onReset, initialAgent }) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const { agents, getAgent } = useConfig()
   const isMobile = useIsMobile()
   const defaultAgentId = agents[0]?.id ?? null
@@ -45,6 +46,9 @@ export function ChatScreen({ onReset, initialAgent }) {
   const [orbState, setOrbState] = useState("idle")
   const [input, setInput] = useState("")
   const [speakingLevel, setSpeakingLevel] = useState(0)
+  const { isSpeaking: ttsSpeaking, speak, cancel: cancelTts } = useSpeechSynthesis()
+  // Debounce timer for typing → thinking → idle transitions.
+  const typingTimerRef = useRef(null)
   // Scroll-trap state — auto-scroll only when isNearBottom; otherwise count
   // unseen messages and surface a pill.
   const [isNearBottom, setIsNearBottom] = useState(true)
@@ -117,28 +121,72 @@ export function ChatScreen({ onReset, initialAgent }) {
     lastSeenLengthRef.current = messages.length
   }
 
-  function cycleOrbState() {
-    setOrbState((s) =>
-      s === "idle" ? "listening" : s === "listening" ? "thinking" : s === "thinking" ? "speaking" : "idle",
-    )
+  // Orb click → speak the greeting line (the static text under the orb,
+  // with the user's name woven in) in the current locale. While speaking,
+  // an effect below forces orb into "speaking" mode. Click again to cancel.
+  // No-op while the mic is listening (Web Speech in & out collide on iOS).
+  function handleOrbClick() {
+    if (orbState === "listening") return
+    if (ttsSpeaking) {
+      cancelTts()
+      return
+    }
+    const greeting = t(greetingKey(greetHour))
+    const lead = t("chat.subtitle.lead")
+    const highlight = t("chat.subtitle.highlight")
+    const fullText = `${greeting}, ${firstName}. ${lead} ${highlight}`
+    const lang = locale === "tr" ? "tr-TR" : "en-US"
+    speak(fullText, { lang })
   }
 
-  function handleMicToggle() {
-    setOrbState((s) => (s === "listening" ? "idle" : "listening"))
+  // The composer drives the recognizer; we only need to mirror its boolean
+  // listening flag into orbState. Listening always wins over any other mode.
+  function handleMicToggle(nextListening) {
+    if (nextListening) setOrbState("listening")
+    else setOrbState((s) => (s === "listening" ? "idle" : s))
   }
 
   function handleChip(prefix) {
     setInput((v) => prefix + v.replace(/^([^:]+:\s*)/, ""))
   }
 
+  // User-typing → "thinking" with a 600 ms idle debounce. Mic listening and
+  // TTS speaking both outrank typing — don't flap them.
   function handleInputChange(next) {
     setInput(next)
-    if (next.trim() && orbState === "idle") {
-      setOrbState("listening")
-    } else if (!next.trim() && orbState === "listening") {
-      setOrbState("idle")
+    if (orbState === "listening" || orbState === "speaking" || ttsSpeaking) return
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    if (next.trim()) {
+      if (orbState !== "thinking") setOrbState("thinking")
+      typingTimerRef.current = setTimeout(() => {
+        setOrbState((s) => (s === "thinking" ? "idle" : s))
+      }, 600)
+    } else {
+      setOrbState((s) => (s === "thinking" ? "idle" : s))
     }
   }
+
+  // Force orb into "speaking" while the TTS engine is playing the greeting,
+  // revert to "idle" when it finishes (unless something else has claimed
+  // the orb in the meantime). This is a legitimate external-signal-to-state
+  // mirror (the speechSynthesis engine fires onstart/onend through the hook
+  // and we need to reflect that in the orb's visual mode).
+  useEffect(() => {
+    if (ttsSpeaking) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setOrbState("speaking")
+    } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setOrbState((s) => (s === "speaking" ? "idle" : s))
+    }
+  }, [ttsSpeaking])
+
+  // Tear down the typing debounce on unmount.
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    }
+  }, [])
 
   async function handleSend() {
     const text = input.trim()
@@ -191,7 +239,7 @@ export function ChatScreen({ onReset, initialAgent }) {
           state={orbState}
           level={effectiveLevel}
           size={isMobile ? 110 : 150}
-          onClick={cycleOrbState}
+          onClick={handleOrbClick}
         />
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -252,7 +300,12 @@ export function ChatScreen({ onReset, initialAgent }) {
           signal. */}
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 pb-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <PastelVoiceOrb state={orbState} level={effectiveLevel} size={40} />
+          <PastelVoiceOrb
+            state={orbState}
+            level={effectiveLevel}
+            size={40}
+            onClick={handleOrbClick}
+          />
           <div className="flex min-w-0 flex-col leading-tight">
             <span className="truncate text-sm font-medium">{activeAgent?.name}</span>
             {orbState === "thinking" ? (
@@ -334,7 +387,7 @@ export function ChatScreen({ onReset, initialAgent }) {
       <div className="shrink-0 bg-background py-2 sm:py-3">
         <ChatComposer
           value={input}
-          onChange={setInput}
+          onChange={handleInputChange}
           onSend={handleSend}
           agent={agent}
           onAgentChange={setAgent}

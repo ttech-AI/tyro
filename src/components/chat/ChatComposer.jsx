@@ -122,10 +122,14 @@ export function ChatComposer({
       }
       return
     }
-    if (speech.isListening) speech.stop()
-    else speech.start()
-    // Keep parent's optional listener in the loop (e.g. orb mode in ChatScreen).
-    onMicToggle?.()
+    // Tell the parent what the NEXT listening state is, synchronously, so
+    // it can flip the orb (or any other UI) without subscribing to the
+    // recognizer's onstart/onend events. Engine async start is fine — the
+    // parent gets a clean boolean to mirror.
+    const nextListening = !speech.isListening
+    if (nextListening) speech.start()
+    else speech.stop()
+    onMicToggle?.(nextListening)
   }
 
   // Abort recognition if the composer becomes disabled (orb thinking)
