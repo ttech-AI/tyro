@@ -1,3 +1,5 @@
+import { getDateTimeFormat } from "./intl-cache"
+
 const FORMATS = {
   tr: { weekday: "long", day: "numeric", month: "long", year: "numeric" },
   en: { weekday: "long", month: "long", day: "numeric", year: "numeric" },
@@ -10,7 +12,7 @@ const RELATIVE = {
 
 export function formatLongDate(date, locale = "tr") {
   const opts = FORMATS[locale] ?? FORMATS.tr
-  return new Intl.DateTimeFormat(locale === "tr" ? "tr-TR" : "en-US", opts).format(date)
+  return getDateTimeFormat(locale, opts).format(date)
 }
 
 export function formatRelative(date, locale = "tr") {

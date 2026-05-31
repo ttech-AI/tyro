@@ -4,16 +4,16 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Copy01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { getDateTimeFormat } from "@/lib/intl-cache"
 import { useLocale } from "@/hooks/useLocale"
 import { PastelOrb } from "@/components/brand/PastelOrb"
 import { IconOrLogo } from "@/components/common/IconOrLogo"
 import { useConfig } from "@/hooks/useConfig"
 
+const TIME_FORMAT_OPTIONS = { hour: "2-digit", minute: "2-digit" }
+
 function formatTime(date, locale) {
-  return new Intl.DateTimeFormat(locale === "tr" ? "tr-TR" : "en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date)
+  return getDateTimeFormat(locale, TIME_FORMAT_OPTIONS).format(date)
 }
 
 // Bubble width tokens — wider on phones (more reading room when the user

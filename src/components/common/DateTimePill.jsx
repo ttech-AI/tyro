@@ -3,24 +3,25 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Calendar05Icon } from "@hugeicons/core-free-icons"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useLocale } from "@/hooks/useLocale"
+import { getDateTimeFormat } from "@/lib/intl-cache"
+
+// Hoisted format-option literals so the per-locale Intl cache key is stable
+// (the cache stringifies options — same reference → same key, same hit).
+const OPTS_WEEKDAY_SHORT = { weekday: "short" }
+const OPTS_DATE_SHORT = { day: "numeric", month: "short" }
+const OPTS_WEEKDAY_LONG = { weekday: "long" }
+const OPTS_FULL_DATE = { day: "numeric", month: "long", year: "numeric" }
+const OPTS_TIME = { hour: "2-digit", minute: "2-digit" }
 
 function format(now, locale) {
-  const intl = locale === "tr" ? "tr-TR" : "en-US"
   return {
     // Compact display (visible in the header)
-    weekdayShort: new Intl.DateTimeFormat(intl, { weekday: "short" }).format(now),
-    dateShort: new Intl.DateTimeFormat(intl, { day: "numeric", month: "short" }).format(now),
+    weekdayShort: getDateTimeFormat(locale, OPTS_WEEKDAY_SHORT).format(now),
+    dateShort: getDateTimeFormat(locale, OPTS_DATE_SHORT).format(now),
     // Verbose tooltip — full weekday + day + month + year + clock
-    weekdayLong: new Intl.DateTimeFormat(intl, { weekday: "long" }).format(now),
-    fullDate: new Intl.DateTimeFormat(intl, {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }).format(now),
-    time: new Intl.DateTimeFormat(intl, {
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(now),
+    weekdayLong: getDateTimeFormat(locale, OPTS_WEEKDAY_LONG).format(now),
+    fullDate: getDateTimeFormat(locale, OPTS_FULL_DATE).format(now),
+    time: getDateTimeFormat(locale, OPTS_TIME).format(now),
   }
 }
 
