@@ -324,15 +324,14 @@ export function ChatScreen({ onReset, initialAgent }) {
         </AnimatePresence>
       </div>
 
-      {/* Row 3 — composer. The padding-bottom uses an inline max() so even
-          in a browser tab (insets=0) the touch surface has a small breathing
-          gap, while in PWA standalone the home-indicator area is fully
-          cleared. Solid bg at the bottom keeps the indicator from bleeding
+      {/* Row 3 — composer. Symmetric py only: the safe-area-inset-bottom
+          is ALREADY applied one level up by SidebarInset
+          (pb-[env(safe-area-inset-bottom)] in DashboardLayout). Adding env()
+          here too would double the home-indicator gutter (~68 px on iOS PWA)
+          and leave a tall bg-background band above the indicator — the
+          "white gap" regression. Solid bg keeps the indicator from bleeding
           through the gradient. */}
-      <div
-        className="shrink-0 bg-background pt-2 sm:pt-3"
-        style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}
-      >
+      <div className="shrink-0 bg-background py-2 sm:py-3">
         <ChatComposer
           value={input}
           onChange={setInput}
