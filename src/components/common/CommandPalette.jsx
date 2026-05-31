@@ -1,9 +1,14 @@
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
+  DashboardCircleIcon,
+  AiChat02Icon,
+  Analytics01Icon,
+  Settings02Icon,
+  HelpCircleIcon,
   Moon01Icon,
   Sun01Icon,
   LanguageCircleIcon,
-  Settings01Icon,
+  Add01Icon,
 } from "@hugeicons/core-free-icons"
 import {
   CommandDialog,
@@ -16,22 +21,26 @@ import {
 } from "@/components/ui/command"
 import { useLocale } from "@/hooks/useLocale"
 import { useTheme } from "@/hooks/useTheme"
-import { apps, getApp } from "@/data/apps"
-import { activities } from "@/data/activities"
-import { formatRelative } from "@/lib/date"
-import { safeExternalUrl } from "@/lib/utils"
 
-export function CommandPalette({ open, onOpenChange }) {
-  const { t, locale, toggle: toggleLocale } = useLocale()
+// Pages mirror what the sidebar shows (navMain + navSecondary). Keep this
+// in sync with src/components/layout/Sidebar.jsx so search results don't
+// drift from the actual nav.
+const PAGES = [
+  { id: "dashboard", path: "/dashboard", labelKey: "nav.dashboard", icon: DashboardCircleIcon },
+  { id: "chat", path: "/chat", labelKey: "nav.chat", icon: AiChat02Icon },
+  { id: "analytics", path: "/analytics", labelKey: "nav.analytics", icon: Analytics01Icon },
+  { id: "settings", path: "/settings", labelKey: "nav.settings", icon: Settings02Icon },
+  { id: "help", path: "/help", labelKey: "nav.help", icon: HelpCircleIcon },
+]
+
+export function CommandPalette({ open, onOpenChange, onNavigate, onNewChat }) {
+  const { t, toggle: toggleLocale } = useLocale()
   const { theme, toggle: toggleTheme } = useTheme()
 
   const close = () => onOpenChange?.(false)
 
-  const openApp = (url) => {
-    const safe = safeExternalUrl(url)
-    if (safe !== "#") {
-      window.open(safe, "_blank", "noopener,noreferrer")
-    }
+  const go = (path) => {
+    onNavigate?.(path)
     close()
   }
 
@@ -41,54 +50,32 @@ export function CommandPalette({ open, onOpenChange }) {
       <CommandList>
         <CommandEmpty>{t("cmd.empty")}</CommandEmpty>
 
-        <CommandGroup heading={t("cmd.groupApps")}>
-          {apps.map((app) => (
+        <CommandGroup heading={t("cmd.groupPages")}>
+          {PAGES.map((p) => (
             <CommandItem
-              key={app.id}
-              value={`${app.name} ${app.description[locale] ?? app.description.tr}`}
-              onSelect={() => openApp(app.url)}
+              key={p.id}
+              value={t(p.labelKey)}
+              onSelect={() => go(p.path)}
             >
-              <HugeiconsIcon icon={app.icon} size={16} strokeWidth={1.5} />
-              <div className="flex-1 flex items-center justify-between">
-                <span className="font-medium">{app.name}</span>
-                <span className="text-xs text-muted-foreground truncate ml-3">
-                  {app.description[locale] ?? app.description.tr}
-                </span>
-              </div>
+              <HugeiconsIcon icon={p.icon} size={16} strokeWidth={1.5} />
+              <span className="font-medium">{t(p.labelKey)}</span>
             </CommandItem>
           ))}
         </CommandGroup>
 
         <CommandSeparator />
 
-        <CommandGroup heading={t("cmd.groupActivities")}>
-          {activities.slice(0, 4).map((a) => {
-            const app = getApp(a.appId)
-            const targetText = a.target[locale] ?? a.target.tr
-            return (
-              <CommandItem
-                key={a.id}
-                value={`${a.actor ?? ""} ${targetText} ${app?.name ?? ""}`}
-                onSelect={() => openApp(app?.url)}
-              >
-                {app && <HugeiconsIcon icon={app.icon} size={16} strokeWidth={1.5} />}
-                <div className="flex-1 flex items-center justify-between gap-3">
-                  <span className="truncate">
-                    {a.actor && <span className="font-medium">{a.actor} </span>}
-                    <span className="text-muted-foreground">{targetText}</span>
-                  </span>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {app?.name} · {formatRelative(a.timestamp, locale)}
-                  </span>
-                </div>
-              </CommandItem>
-            )
-          })}
-        </CommandGroup>
-
-        <CommandSeparator />
-
         <CommandGroup heading={t("cmd.groupActions")}>
+          <CommandItem
+            value={t("nav.quickAction")}
+            onSelect={() => {
+              onNewChat?.()
+              close()
+            }}
+          >
+            <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={1.5} />
+            <span>{t("nav.quickAction")}</span>
+          </CommandItem>
           <CommandItem
             onSelect={() => {
               toggleTheme()
@@ -107,8 +94,8 @@ export function CommandPalette({ open, onOpenChange }) {
             <HugeiconsIcon icon={LanguageCircleIcon} size={16} strokeWidth={1.5} />
             {t("cmd.actionToggleLocale")}
           </CommandItem>
-          <CommandItem onSelect={close}>
-            <HugeiconsIcon icon={Settings01Icon} size={16} strokeWidth={1.5} />
+          <CommandItem onSelect={() => go("/settings")}>
+            <HugeiconsIcon icon={Settings02Icon} size={16} strokeWidth={1.5} />
             {t("cmd.actionOpenSettings")}
           </CommandItem>
         </CommandGroup>

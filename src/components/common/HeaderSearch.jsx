@@ -2,10 +2,15 @@ import { useState } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Search01Icon,
+  DashboardCircleIcon,
+  AiChat02Icon,
+  Analytics01Icon,
+  Settings02Icon,
+  HelpCircleIcon,
   Moon02Icon,
   Sun03Icon,
   LanguageSquareIcon,
-  Settings02Icon,
+  Add01Icon,
 } from "@hugeicons/core-free-icons"
 import {
   Popover,
@@ -23,19 +28,23 @@ import {
 } from "@/components/ui/command"
 import { useLocale } from "@/hooks/useLocale"
 import { useTheme } from "@/hooks/useTheme"
-import { apps, getApp } from "@/data/apps"
-import { activities } from "@/data/activities"
-import { formatRelative } from "@/lib/date"
-import { safeExternalUrl } from "@/lib/utils"
 
-export function HeaderSearch() {
-  const { t, locale, toggle: toggleLocale } = useLocale()
+// Keep in sync with src/components/layout/Sidebar.jsx + CommandPalette.jsx.
+const PAGES = [
+  { id: "dashboard", path: "/dashboard", labelKey: "nav.dashboard", icon: DashboardCircleIcon },
+  { id: "chat", path: "/chat", labelKey: "nav.chat", icon: AiChat02Icon },
+  { id: "analytics", path: "/analytics", labelKey: "nav.analytics", icon: Analytics01Icon },
+  { id: "settings", path: "/settings", labelKey: "nav.settings", icon: Settings02Icon },
+  { id: "help", path: "/help", labelKey: "nav.help", icon: HelpCircleIcon },
+]
+
+export function HeaderSearch({ onNavigate, onNewChat }) {
+  const { t, toggle: toggleLocale } = useLocale()
   const { theme, toggle: toggleTheme } = useTheme()
   const [open, setOpen] = useState(false)
 
-  const openApp = (url) => {
-    const safe = safeExternalUrl(url)
-    if (safe !== "#") window.open(safe, "_blank", "noopener,noreferrer")
+  const go = (path) => {
+    onNavigate?.(path)
     setOpen(false)
   }
 
@@ -48,7 +57,7 @@ export function HeaderSearch() {
           className="ml-auto hidden sm:flex items-center gap-2 h-9 px-3 rounded-xl border border-input/80 bg-background/60 text-sm text-muted-foreground hover:bg-accent hover:text-foreground hover:border-input transition shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-56 lg:w-72"
         >
           <HugeiconsIcon icon={Search01Icon} className="size-4 shrink-0" />
-          <span className="flex-1 text-left truncate">Ara…</span>
+          <span className="flex-1 text-left truncate">{t("header.search")}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -61,54 +70,32 @@ export function HeaderSearch() {
           <CommandList>
             <CommandEmpty>{t("cmd.empty")}</CommandEmpty>
 
-            <CommandGroup heading={t("cmd.groupApps")}>
-              {apps.map((app) => (
+            <CommandGroup heading={t("cmd.groupPages")}>
+              {PAGES.map((p) => (
                 <CommandItem
-                  key={app.id}
-                  value={`${app.name} ${app.description[locale] ?? app.description.tr}`}
-                  onSelect={() => openApp(app.url)}
+                  key={p.id}
+                  value={t(p.labelKey)}
+                  onSelect={() => go(p.path)}
                 >
-                  <HugeiconsIcon icon={app.icon} />
-                  <div className="flex-1 flex items-center justify-between gap-3">
-                    <span className="font-medium">{app.name}</span>
-                    <span className="text-xs text-muted-foreground truncate">
-                      {app.description[locale] ?? app.description.tr}
-                    </span>
-                  </div>
+                  <HugeiconsIcon icon={p.icon} />
+                  <span className="font-medium">{t(p.labelKey)}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
 
             <CommandSeparator />
 
-            <CommandGroup heading={t("cmd.groupActivities")}>
-              {activities.slice(0, 4).map((a) => {
-                const app = getApp(a.appId)
-                const targetText = a.target[locale] ?? a.target.tr
-                return (
-                  <CommandItem
-                    key={a.id}
-                    value={`${a.actor ?? ""} ${targetText} ${app?.name ?? ""}`}
-                    onSelect={() => openApp(app?.url)}
-                  >
-                    {app && <HugeiconsIcon icon={app.icon} />}
-                    <div className="flex-1 flex items-center justify-between gap-3 min-w-0">
-                      <span className="truncate">
-                        {a.actor && <span className="font-medium">{a.actor} </span>}
-                        <span className="text-muted-foreground">{targetText}</span>
-                      </span>
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {formatRelative(a.timestamp, locale)}
-                      </span>
-                    </div>
-                  </CommandItem>
-                )
-              })}
-            </CommandGroup>
-
-            <CommandSeparator />
-
             <CommandGroup heading={t("cmd.groupActions")}>
+              <CommandItem
+                value={t("nav.quickAction")}
+                onSelect={() => {
+                  onNewChat?.()
+                  setOpen(false)
+                }}
+              >
+                <HugeiconsIcon icon={Add01Icon} />
+                <span>{t("nav.quickAction")}</span>
+              </CommandItem>
               <CommandItem onSelect={() => { toggleTheme(); setOpen(false) }}>
                 <HugeiconsIcon icon={theme === "dark" ? Sun03Icon : Moon02Icon} />
                 {t("cmd.actionToggleTheme")}
@@ -117,7 +104,7 @@ export function HeaderSearch() {
                 <HugeiconsIcon icon={LanguageSquareIcon} />
                 {t("cmd.actionToggleLocale")}
               </CommandItem>
-              <CommandItem onSelect={() => setOpen(false)}>
+              <CommandItem onSelect={() => go("/settings")}>
                 <HugeiconsIcon icon={Settings02Icon} />
                 {t("cmd.actionOpenSettings")}
               </CommandItem>

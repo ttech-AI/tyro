@@ -161,6 +161,7 @@ export const strings = {
   "cmd.placeholder": "Uygulama, aktivite veya eylem ara…",
   "cmd.empty": "Sonuç bulunamadı.",
   "cmd.groupApps": "Uygulamalar",
+  "cmd.groupPages": "Sayfalar",
   "cmd.groupActivities": "Son aktiviteler",
   "cmd.groupActions": "Hızlı eylemler",
   "cmd.actionToggleTheme": "Temayı değiştir",

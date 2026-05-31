@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "./Sidebar"
 import { Header } from "./Header"
@@ -7,6 +8,7 @@ import { useHotkey } from "@/hooks/useHotkey"
 import { cn } from "@/lib/utils"
 
 export function DashboardLayout({ children, activeId, onActiveIdChange, onNewChat }) {
+  const navigate = useNavigate()
   const [searchOpen, setSearchOpen] = useState(false)
   useHotkey("mod+k", () => setSearchOpen((v) => !v))
 
@@ -46,14 +48,24 @@ export function DashboardLayout({ children, activeId, onActiveIdChange, onNewCha
           "min-h-0",
         )}
       >
-        <Header activeId={activeId} onOpenSearch={() => setSearchOpen(true)} />
+        <Header
+          activeId={activeId}
+          onOpenSearch={() => setSearchOpen(true)}
+          onNavigate={navigate}
+          onNewChat={onNewChat}
+        />
         {/* min-h-0 here too — main is a flex-1 inside SidebarInset, same
             principle. Together with the chat root's min-h-0 (in ChatScreen)
             this makes the flex chain strictly bounded so only the chat
             scroller scrolls, never the page. */}
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</main>
       </SidebarInset>
-      <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
+      <CommandPalette
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onNavigate={navigate}
+        onNewChat={onNewChat}
+      />
     </SidebarProvider>
   )
 }

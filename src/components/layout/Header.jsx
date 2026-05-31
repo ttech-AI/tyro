@@ -41,7 +41,7 @@ const PAGE_LABEL_KEY = {
   help: "nav.help",
 }
 
-export function Header({ activeId = "dashboard", onOpenSearch }) {
+export function Header({ activeId = "dashboard", onOpenSearch, onNavigate, onNewChat }) {
   const { t } = useLocale()
   const pageLabelKey = PAGE_LABEL_KEY[activeId] ?? "nav.dashboard"
 
@@ -66,7 +66,7 @@ export function Header({ activeId = "dashboard", onOpenSearch }) {
           </BreadcrumbList>
         </Breadcrumb>
 
-        <HeaderSearch />
+        <HeaderSearch onNavigate={onNavigate} onNewChat={onNewChat} />
 
         <button
           type="button"

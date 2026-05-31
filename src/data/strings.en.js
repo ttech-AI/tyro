@@ -161,6 +161,7 @@ export const strings = {
   "cmd.placeholder": "Search apps, activity or actions…",
   "cmd.empty": "No results.",
   "cmd.groupApps": "Apps",
+  "cmd.groupPages": "Pages",
   "cmd.groupActivities": "Recent activity",
   "cmd.groupActions": "Quick actions",
   "cmd.actionToggleTheme": "Toggle theme",
