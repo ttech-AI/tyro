@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react"
 import { Routes, Route, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { useIsAuthenticated, useMsal } from "@azure/msal-react"
 import { InteractionStatus } from "@azure/msal-browser"
@@ -5,8 +6,18 @@ import { isMsalConfigured, MOCK_LOGGED_IN_KEY } from "@/lib/msal"
 import { Toaster } from "@/components/ui/sonner"
 import { DashboardLayout } from "@/components/layout/DashboardLayout"
 import { SectionCards } from "@/components/dashboard/SectionCards"
-import { ChartAreaInteractive } from "@/components/dashboard/ChartAreaInteractive"
 import { DataTable } from "@/components/dashboard/DataTable"
+
+// Code-split recharts out of the main bundle. recharts is ~500 KB minified
+// and only used on /analytics — the dashboard/chat/settings routes don't
+// need it. lazy() + Suspense lets the main chunk stay small, with a
+// reserved-height skeleton placeholder so the layout doesn't jump when
+// the chart chunk arrives.
+const ChartAreaInteractive = lazy(() =>
+  import("@/components/dashboard/ChartAreaInteractive").then((m) => ({
+    default: m.ChartAreaInteractive,
+  })),
+)
 import { HeroSection } from "@/components/dashboard/HeroSection"
 import { AppLauncher } from "@/components/dashboard/AppLauncher"
 import { ChatScreen } from "@/components/chat/ChatScreen"
@@ -46,7 +57,16 @@ function AnalyticsContent() {
         </div>
         <SectionCards />
         <div className="px-4 lg:px-6">
-          <ChartAreaInteractive />
+          <Suspense
+            fallback={
+              <div
+                aria-hidden="true"
+                className="h-[250px] w-full animate-pulse rounded-xl bg-muted/30"
+              />
+            }
+          >
+            <ChartAreaInteractive />
+          </Suspense>
         </div>
         <div className="overflow-x-auto">
           <div className="min-w-[720px] sm:min-w-0">
