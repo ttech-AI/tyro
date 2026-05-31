@@ -136,7 +136,11 @@ export function ChatScreen({ onReset, initialAgent }) {
     const highlight = t("chat.subtitle.highlight")
     const fullText = `${greeting}, ${firstName}. ${lead} ${highlight}`
     const lang = locale === "tr" ? "tr-TR" : "en-US"
-    speak(fullText, { lang })
+    // Slight slowdown (rate 0.95) gives Turkish a smoother, less choppy
+    // cadence — the default 1.0 made the engine clip syllables on the
+    // bundled Windows Tolga voice. Cloud / neural voices handle 0.95
+    // naturally too.
+    speak(fullText, { lang, rate: 0.95 })
   }
 
   // The composer drives the recognizer; we only need to mirror its boolean

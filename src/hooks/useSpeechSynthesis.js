@@ -48,18 +48,46 @@ export function useSpeechSynthesis() {
     return () => synth.removeEventListener("voiceschanged", onChange)
   }, [])
 
-  // Pick the best voice for a given BCP-47 lang tag:
-  //   1. exact match ("tr-TR" === "tr-TR")
-  //   2. language-prefix match ("tr-CY".startsWith("tr"))
-  //   3. fall back to system default (null → engine picks)
+  // Pick the smoothest, most natural-sounding voice for a given lang.
+  //
+  // Web Speech API doesn't expose gender or quality directly, so we score
+  // each voice by name patterns + localService flag:
+  //   - exact lang match: +100  | prefix match: +50  | no match: skip
+  //   - female-leaning name (TR: Filiz, Yelda, Ayşe, Emel; EN: Zira, Aria,
+  //     Samantha, Jenny; generic: Neural, Natural, Female): +30
+  //   - cloud / non-local voice (localService === false, e.g. Google Cloud
+  //     or Edge Neural voices — usually much smoother than OS-bundled): +15
+  //   - any voice with "google" in the name: +5 (Chrome's TTS is reliably
+  //     smoother than the Windows default TR voice Tolga)
+  // Highest-scoring voice wins; ties go to the first one seen.
   const pickVoice = useCallback(
     (lang) => {
       if (!lang || voices.length === 0) return null
-      const exact = voices.find((v) => v.lang === lang)
-      if (exact) return exact
       const prefix = lang.split("-")[0]
-      const partial = voices.find((v) => v.lang.startsWith(prefix))
-      return partial ?? null
+      let best = null
+      let bestScore = -1
+      for (const v of voices) {
+        const vLang = v.lang || ""
+        let score
+        if (vLang === lang) score = 100
+        else if (vLang.startsWith(prefix)) score = 50
+        else continue
+        const name = (v.name || "").toLowerCase()
+        if (
+          /(filiz|yelda|ayşe|ayse|emel|aslı|asli|zeynep|tülay|tulay|zira|aria|samantha|jenny|susan|kate|emma|natural|neural|female|kadın|woman)/i.test(
+            name,
+          )
+        ) {
+          score += 30
+        }
+        if (v.localService === false) score += 15
+        if (name.includes("google")) score += 5
+        if (score > bestScore) {
+          bestScore = score
+          best = v
+        }
+      }
+      return best
     },
     [voices],
   )
