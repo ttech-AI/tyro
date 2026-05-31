@@ -19,17 +19,33 @@ export function AgentSelect({ value, onChange }) {
         <Button
           variant="outline"
           size="sm"
-          className="h-9 gap-2 rounded-full border-border/70 bg-background px-3.5 text-sm font-medium"
+          aria-label={current?.name}
+          className={
+            // h-9 still matches the attach / mic buttons in the composer
+            // bottom row, but the horizontal weight (padding, gap, font)
+            // shrinks on mobile so the pill is roughly two-thirds its old
+            // width without dropping the agent name. On sm+ it relaxes
+            // back to a normal pill. Long names (TYRO Project Manager …)
+            // truncate via max-w + truncate so the row never overflows.
+            [
+              "h-9 gap-1.5 rounded-full border-border/50 bg-background px-2.5",
+              "text-[12px] font-medium transition-colors hover:bg-muted/40",
+              "sm:gap-2 sm:px-3 sm:text-[13px]",
+            ].join(" ")
+          }
         >
-          <span className="grid size-4 shrink-0 place-items-center overflow-hidden rounded-sm">
+          <span className="grid size-[14px] shrink-0 place-items-center overflow-hidden rounded-sm sm:size-4">
             <IconOrLogo
               iconName={current?.iconName}
               logo={current?.logo}
-              className="size-4"
+              className="size-[14px] sm:size-4"
             />
           </span>
-          <span>{current?.name}</span>
-          <HugeiconsIcon icon={ArrowDown01Icon} className="size-3.5 text-muted-foreground" />
+          <span className="max-w-[88px] truncate sm:max-w-[180px]">{current?.name}</span>
+          <HugeiconsIcon
+            icon={ArrowDown01Icon}
+            className="size-3 shrink-0 text-muted-foreground/70 sm:size-3.5"
+          />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
