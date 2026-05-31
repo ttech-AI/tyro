@@ -6,7 +6,7 @@ import {
   Attachment01Icon,
   Mic01Icon,
   MicOff01Icon,
-  ArrowRight01Icon,
+  ArrowUp01Icon,
   TextBoldIcon,
   TextItalicIcon,
   TextUnderlineIcon,
@@ -17,6 +17,11 @@ import {
 } from "@hugeicons/core-free-icons"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { AgentSelect } from "./AgentSelect"
 import { useLocale } from "@/hooks/useLocale"
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition"
@@ -374,98 +379,126 @@ export function ChatComposer({
       {/* Bottom row */}
       <div className="flex items-center justify-between gap-2 px-3 py-2.5 sm:px-5 sm:py-3">
         <div className="flex items-center gap-1 sm:gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={openFilePicker}
-            className="size-9 text-muted-foreground hover:text-foreground"
-            aria-label={t("chat.attach")}
-          >
-            <HugeiconsIcon icon={Attachment01Icon} className="size-[18px]" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={openFilePicker}
+                className="size-9 text-muted-foreground hover:text-foreground"
+                aria-label={t("chat.attach")}
+              >
+                <HugeiconsIcon icon={Attachment01Icon} className="size-[18px]" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={6}>
+              {t("chat.attach")}
+            </TooltipContent>
+          </Tooltip>
           <AgentSelect value={agent} onChange={onAgentChange} />
         </div>
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Rich-text toggle — hidden on mobile (ChatGPT/Claude mobile
               composers omit it too). Stays available on tablet+ where the
               row has room. */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setRichTextOpen((v) => !v)}
-            aria-label={t("chat.format.toggle")}
-            aria-pressed={richTextOpen}
-            className={cn(
-              "hidden text-muted-foreground hover:text-foreground sm:inline-flex sm:size-9",
-              richTextOpen && "bg-brand-soft/60 text-brand-deep",
-            )}
-          >
-            <HugeiconsIcon icon={TextFontIcon} className="size-[18px]" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={handleMicClick}
-            disabled={disabled}
-            aria-label={
-              !speech.isSupported
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setRichTextOpen((v) => !v)}
+                aria-label={t("chat.format.toggle")}
+                aria-pressed={richTextOpen}
+                className={cn(
+                  "hidden text-muted-foreground hover:text-foreground sm:inline-flex sm:size-9",
+                  richTextOpen && "bg-brand-soft/60 text-brand-deep",
+                )}
+              >
+                <HugeiconsIcon icon={TextFontIcon} className="size-[18px]" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={6}>
+              {t("chat.format.toggle")}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={handleMicClick}
+                disabled={disabled}
+                aria-label={
+                  !speech.isSupported
+                    ? t("chat.mic.unsupported")
+                    : speech.isListening
+                      ? t("chat.mic.stop")
+                      : t("chat.mic.start")
+                }
+                aria-pressed={speech.isListening}
+                data-mic-state={
+                  !speech.isSupported
+                    ? "unsupported"
+                    : speech.isListening
+                      ? "listening"
+                      : "idle"
+                }
+                className={cn(
+                  "relative size-9 rounded-full text-muted-foreground transition-colors hover:text-foreground sm:size-9",
+                  speech.isListening && "bg-brand-via/15 text-brand-deep hover:text-brand-deep",
+                  !speech.isSupported &&
+                    "opacity-50 cursor-not-allowed hover:text-muted-foreground",
+                )}
+              >
+                {speech.isListening ? (
+                  <span aria-hidden="true" className="mic-bars relative z-[1]">
+                    <span />
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                ) : (
+                  <HugeiconsIcon
+                    icon={speech.isSupported ? Mic01Icon : MicOff01Icon}
+                    className="relative z-[1] size-[18px]"
+                  />
+                )}
+                {speech.isListening && (
+                  <span aria-hidden="true" className="mic-listening-pulse" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={6}>
+              {!speech.isSupported
                 ? t("chat.mic.unsupported")
                 : speech.isListening
-                  ? t("chat.mic.stop")
-                  : t("chat.mic.start")
-            }
-            aria-pressed={speech.isListening}
-            title={!speech.isSupported ? t("chat.mic.unsupported") : undefined}
-            data-mic-state={
-              !speech.isSupported
-                ? "unsupported"
-                : speech.isListening
-                  ? "listening"
-                  : "idle"
-            }
-            className={cn(
-              "relative size-9 rounded-full text-muted-foreground transition-colors hover:text-foreground sm:size-9",
-              speech.isListening && "bg-brand-via/15 text-brand-deep hover:text-brand-deep",
-              !speech.isSupported &&
-                "opacity-50 cursor-not-allowed hover:text-muted-foreground",
-            )}
-          >
-            {speech.isListening ? (
-              // Animated equalizer bars during listening — stronger "I'm
-              // recording" affordance than a static mic icon. Same hit
-              // target; click again to stop.
-              <span aria-hidden="true" className="mic-bars relative z-[1]">
-                <span />
-                <span />
-                <span />
-                <span />
-              </span>
-            ) : (
-              <HugeiconsIcon
-                icon={speech.isSupported ? Mic01Icon : MicOff01Icon}
-                className="relative z-[1] size-[18px]"
-              />
-            )}
-            {speech.isListening && (
-              <span aria-hidden="true" className="mic-listening-pulse" />
-            )}
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSendClick}
-            disabled={disabled || !hasContent}
-            aria-label={t("chat.send")}
-            className={cn(
-              "size-10 rounded-full bg-gradient-to-br from-brand-from via-brand-via to-brand-to p-0 text-white shadow-sm sm:size-10",
-              "duration-200 ease-linear hover:brightness-110 hover:text-white",
-              "disabled:opacity-40 disabled:cursor-not-allowed",
-            )}
-          >
-            <HugeiconsIcon icon={ArrowRight01Icon} className="size-5" />
-          </Button>
+                  ? t("chat.tooltip.micStop")
+                  : t("chat.tooltip.mic")}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                onClick={handleSendClick}
+                disabled={disabled || !hasContent}
+                aria-label={t("chat.send")}
+                className={cn(
+                  "size-10 rounded-full bg-gradient-to-br from-brand-from via-brand-via to-brand-to p-0 text-white shadow-sm sm:size-10",
+                  "duration-200 ease-linear hover:brightness-110 hover:text-white",
+                  "disabled:opacity-40 disabled:cursor-not-allowed",
+                )}
+              >
+                <HugeiconsIcon icon={ArrowUp01Icon} className="size-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={6}>
+              {t("chat.send")}
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
