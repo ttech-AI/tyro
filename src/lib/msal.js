@@ -35,9 +35,16 @@ export const msalConfig = {
   },
 }
 
+export const COPILOT_STUDIO_SCOPE = "https://api.powerplatform.com/CopilotStudio.Copilots.Invoke"
+
 export const loginRequest = {
   scopes: ["User.Read", "openid", "profile", "email"],
   prompt: "select_account",
+  extraScopesToConsent: [COPILOT_STUDIO_SCOPE],
+}
+
+export const copilotStudioRequest = {
+  scopes: [COPILOT_STUDIO_SCOPE],
 }
 
 // Dataverse Web API access. Requires the SPA app registration to have

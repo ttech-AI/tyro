@@ -13,7 +13,20 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { useMe } from "@/hooks/useMe"
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis"
 import { loadMessages, saveMessages, clearMessages } from "@/lib/chatPersistence"
+import { startConversation, sendMessage, sendAction } from "@/lib/copilot"
 import { cn } from "@/lib/utils"
+
+function extractSubmitActions(items) {
+  if (!Array.isArray(items)) return []
+  const actions = []
+  for (const item of items) {
+    if (item.type === "ActionSet" && item.actions) actions.push(...item.actions.filter((a) => a.type === "Action.Submit"))
+    if (item.body) actions.push(...extractSubmitActions(item.body))
+    if (item.columns) for (const col of item.columns) actions.push(...extractSubmitActions(col.items || []))
+    if (item.items) actions.push(...extractSubmitActions(item.items))
+  }
+  return actions
+}
 
 function greetingKey(hour) {
   if (hour >= 5 && hour < 12) return "chat.greeting.morning"
@@ -49,6 +62,8 @@ export function ChatScreen({ onReset, initialAgent }) {
   const { isSpeaking: ttsSpeaking, speak, cancel: cancelTts } = useSpeechSynthesis()
   // Debounce timer for typing → thinking → idle transitions.
   const typingTimerRef = useRef(null)
+  const copilotClientRef = useRef(null)
+  const abortGenRef = useRef(0)
   // Scroll-trap state — auto-scroll only when isNearBottom; otherwise count
   // unseen messages and surface a pill.
   const [isNearBottom, setIsNearBottom] = useState(true)
@@ -192,36 +207,154 @@ export function ChatScreen({ onReset, initialAgent }) {
     }
   }, [])
 
+  // Agent değişince (veya ilk yüklemede) Copilot konuşmasını başlat ve selamlamayı göster.
+  // Bu sayede kullanıcı ilk mesajını gönderdiğinde bot zaten hazır olur.
+  useEffect(() => {
+    const activeAgent = getAgent(agent)
+    const schemaName = activeAgent?.agentId
+    if (!schemaName || schemaName === "agent-id") return
+
+    copilotClientRef.current = null
+    const gen = ++abortGenRef.current
+
+    async function initConversation() {
+      const greetingId = makeId()
+      setMessages((m) => [...m, { id: greetingId, role: "assistant", agent, content: "", attachments: [], time: new Date() }])
+      let greetingText = ""
+      let greetingAttachments = []
+      let copilotClient = null
+      try {
+        for await (const chunk of startConversation(schemaName)) {
+          if (abortGenRef.current !== gen) return
+          if (chunk.done) {
+            copilotClient = chunk.client
+            copilotClientRef.current = { client: copilotClient, agentId: agent }
+            break
+          }
+          greetingText = chunk.text
+          greetingAttachments = chunk.attachments || []
+          setMessages((m) => m.map((msg) => msg.id === greetingId ? { ...msg, content: greetingText, attachments: greetingAttachments } : msg))
+        }
+      } catch (err) {
+        console.error("Copilot init error:", err)
+      }
+      if (abortGenRef.current !== gen) return
+      if (!greetingText && !greetingAttachments.length) {
+        setMessages((m) => m.filter((msg) => msg.id !== greetingId))
+      }
+
+      // Selamlama kartındaki ilk Action.Submit'i otomatik gönder.
+      // Bot diyalogu "başlat" butonuna tıklanmış gibi ilerler — kullanıcı
+      // ilk mesajını gönderdiğinde bot doğru state'te hazır bekler.
+      if (copilotClient && greetingAttachments.length) {
+        const firstCard = greetingAttachments.find((a) => a.contentType === "application/vnd.microsoft.card.adaptive")
+        if (firstCard?.content) {
+          const actions = extractSubmitActions(firstCard.content.body || [])
+          console.log("[copilot] greeting actions found:", JSON.stringify(actions))
+          const firstAction = actions.find((a) => a.style === "positive") || actions[0]
+          // data yoksa {} gönder — buton data olmadan da geçerli bir submit olabilir
+          if (firstAction) {
+            try {
+              for await (const _ of sendAction(copilotClient, firstAction.data ?? {})) {
+                if (abortGenRef.current !== gen) return
+              }
+            } catch (err) {
+              console.warn("Auto-submit greeting action failed:", err)
+            }
+          }
+        }
+      }
+    }
+
+    initConversation()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent])
+
   async function handleSend() {
     const text = input.trim()
     if (!text) return
-    const userMsg = {
-      id: makeId(),
-      role: "user",
-      content: text,
-      time: new Date(),
-    }
-    // Force isNearBottom true on send — the user just acted; they expect to
-    // see their message at the bottom even if they had scrolled up.
+
+    const userMsg = { id: makeId(), role: "user", content: text, time: new Date() }
     setIsNearBottom(true)
     setMessages((m) => [...m, userMsg])
     setInput("")
     setOrbState("thinking")
-    await new Promise((r) => setTimeout(r, 1500))
+
+    const gen = ++abortGenRef.current
     const activeAgent = getAgent(agent)
-    const replyText =
-      activeAgent?.description?.trim() ||
-      `${activeAgent?.name ?? "Agent"} — ${t("chat.subtitle.lead")} ${t("chat.subtitle.highlight")}`
-    const reply = {
-      id: makeId(),
-      role: "assistant",
-      agent,
-      content: replyText,
-      time: new Date(),
+    const schemaName = activeAgent?.agentId
+
+    if (!schemaName || schemaName === "agent-id") {
+      // Agent henüz yapılandırılmamış — mock fallback
+      await new Promise((r) => setTimeout(r, 1000))
+      if (abortGenRef.current !== gen) return
+      const replyText = activeAgent?.description?.trim() || `${activeAgent?.name ?? "Agent"} — ${t("chat.subtitle.lead")} ${t("chat.subtitle.highlight")}`
+      setMessages((m) => [...m, { id: makeId(), role: "assistant", agent, content: replyText, time: new Date() }])
+      setOrbState("speaking")
+      setTimeout(() => setOrbState("idle"), 2400)
+      return
     }
-    setMessages((m) => [...m, reply])
-    setOrbState("speaking")
-    setTimeout(() => setOrbState("idle"), 2400)
+
+    // Bot hazır değilse bekle (startConversation hâlâ çalışıyor olabilir)
+    if (!copilotClientRef.current || copilotClientRef.current.agentId !== agent) {
+      setMessages((m) => [...m, { id: makeId(), role: "assistant", agent, content: t("chat.error") || "Agent bağlanıyor, lütfen bir saniye bekleyin.", attachments: [], time: new Date() }])
+      setOrbState("idle")
+      return
+    }
+
+    try {
+      const client = copilotClientRef.current.client
+
+      // Kullanıcının mesajını gönder ve streaming yanıtı al
+      const replyId = makeId()
+      setMessages((m) => [...m, { id: replyId, role: "assistant", agent, content: "", attachments: [], time: new Date() }])
+      let fullText = ""
+      let fullAttachments = []
+      for await (const chunk of sendMessage(client, text)) {
+        if (abortGenRef.current !== gen) return
+        if (chunk.done) break
+        fullText = chunk.text
+        fullAttachments = chunk.attachments || []
+        setMessages((m) => m.map((msg) => msg.id === replyId ? { ...msg, content: fullText, attachments: fullAttachments } : msg))
+      }
+      // Yanıt içerik yoksa bubble'ı kaldır
+      if (!fullText && !fullAttachments.length) setMessages((m) => m.filter((msg) => msg.id !== replyId))
+      setOrbState("speaking")
+      if (fullText) speak(fullText, { lang: locale === "tr" ? "tr-TR" : "en-US", rate: 0.95 })
+      setTimeout(() => setOrbState("idle"), 2400)
+    } catch (err) {
+      if (abortGenRef.current !== gen) return
+      console.error("Copilot Studio error:", err)
+      setMessages((m) => [...m, { id: makeId(), role: "assistant", agent, content: t("chat.error") || "Bağlantı hatası oluştu.", attachments: [], time: new Date() }])
+      setOrbState("idle")
+    }
+  }
+
+  async function handleCardAction(actionData) {
+    const client = copilotClientRef.current?.client
+    if (!client) return
+    const gen = ++abortGenRef.current
+    setOrbState("thinking")
+    const replyId = makeId()
+    setMessages((m) => [...m, { id: replyId, role: "assistant", agent, content: "", attachments: [], time: new Date() }])
+    let fullText = ""
+    let fullAttachments = []
+    try {
+      for await (const chunk of sendAction(client, actionData)) {
+        if (abortGenRef.current !== gen) return
+        if (chunk.done) break
+        fullText = chunk.text
+        fullAttachments = chunk.attachments || []
+        setMessages((m) => m.map((msg) => msg.id === replyId ? { ...msg, content: fullText, attachments: fullAttachments } : msg))
+      }
+      if (!fullText && !fullAttachments.length) setMessages((m) => m.filter((msg) => msg.id !== replyId))
+      setOrbState("speaking")
+      if (fullText) speak(fullText, { lang: locale === "tr" ? "tr-TR" : "en-US", rate: 0.95 })
+      setTimeout(() => setOrbState("idle"), 2400)
+    } catch (err) {
+      console.error("Card action error:", err)
+      setOrbState("idle")
+    }
   }
 
   function handleResetLocal() {
@@ -266,7 +399,7 @@ export function ChatScreen({ onReset, initialAgent }) {
           onChange={handleInputChange}
           onSend={handleSend}
           agent={agent}
-          onAgentChange={setAgent}
+          onAgentChange={(id) => setAgent(id)}
           onMicToggle={handleMicToggle}
           micActive={orbState === "listening"}
           disabled={orbState === "thinking"}
@@ -350,7 +483,7 @@ export function ChatScreen({ onReset, initialAgent }) {
         className="relative flex-1 min-h-0 space-y-4 overflow-y-auto overscroll-contain px-1 py-3"
       >
         {messages.map((m) => (
-          <ChatMessage key={m.id} message={m} />
+          <ChatMessage key={m.id} message={m} onCardAction={handleCardAction} />
         ))}
       </div>
 
@@ -394,7 +527,7 @@ export function ChatScreen({ onReset, initialAgent }) {
           onChange={handleInputChange}
           onSend={handleSend}
           agent={agent}
-          onAgentChange={setAgent}
+          onAgentChange={(id) => setAgent(id)}
           onMicToggle={handleMicToggle}
           micActive={orbState === "listening"}
           disabled={orbState === "thinking"}
