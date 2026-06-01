@@ -57,6 +57,21 @@ export function ChatScreen({ onReset, initialAgent }) {
   // component (via key), which gives us a fresh empty state by design.
   const [messages, setMessages] = useState(() => loadMessages(initialAgent || defaultAgentId))
   const [orbState, setOrbState] = useState("idle")
+  // Composer'ı yalnızca bot GERÇEKTEN yanıt üretirken kilitler. orbState
+  // "thinking" kullanıcı yazarken de tetiklendiği için (kozmetik orb), Enter'ı
+  // ona bağlamak yazma sonrası gereksiz bekleme yaratıyordu — bunun yerine busy.
+  const [busy, setBusy] = useState(false)
+  // Header "yeni sohbet" butonu bunu artırır → init effect yeniden çalışır
+  // (Copilot konuşmasını SIFIRDAN başlatır + greeting'i tekrar getirir).
+  // Sidebar "Yeni sohbet" tüm komponenti remount ettiği için ayrı; bu, aynı
+  // mount içindeki sıfırlama için.
+  const [resetNonce, setResetNonce] = useState(0)
+  // Aktif agent + schema adı render'da hesaplanır. schemaName init effect'in
+  // bağımlılığıdır: agents (ConfigProvider) ASENKRON yüklenir; agent zaten HR
+  // olsa bile ilk render'da getAgent() undefined dönebilir → init erken çıkar.
+  // schemaName deps'te olduğu için agents yüklenince init kendiliğinden çalışır.
+  const activeAgent = getAgent(agent)
+  const schemaName = activeAgent?.agentId
   const [input, setInput] = useState("")
   const [speakingLevel, setSpeakingLevel] = useState(0)
   const { isSpeaking: ttsSpeaking, speak, cancel: cancelTts } = useSpeechSynthesis()
@@ -93,6 +108,28 @@ export function ChatScreen({ onReset, initialAgent }) {
   useEffect(() => {
     saveMessages(agent, messages)
   }, [messages, agent])
+
+  // isNearBottom'u ref'te de tut: ResizeObserver geri-çağrısı bunu yeniden
+  // abone olmadan okuyabilsin.
+  const isNearBottomRef = useRef(true)
+  useEffect(() => {
+    isNearBottomRef.current = isNearBottom
+  }, [isNearBottom])
+
+  // İçerik yüksekliği değiştikçe (Adaptive Card'lar DOM'a ASENKRON eklenir,
+  // "yazıyor" → metin geçişi yüksekliği büyütür) dibe sabit kal. Tek seferlik
+  // messages-effect scroll'u kart render'ından önce çalıştığı için yetmiyordu.
+  const contentRef = useRef(null)
+  useEffect(() => {
+    const content = contentRef.current
+    const scroller = scrollRef.current
+    if (!content || !scroller || typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(() => {
+      if (isNearBottomRef.current) scroller.scrollTop = scroller.scrollHeight
+    })
+    ro.observe(content)
+    return () => ro.disconnect()
+  }, [])
 
   // Auto-scroll trap: snap to bottom if the user was already near it; else
   // surface a "new message" pill. We track everything in refs to avoid
@@ -214,8 +251,6 @@ export function ChatScreen({ onReset, initialAgent }) {
   // Agent değişince (veya ilk yüklemede) Copilot konuşmasını başlat ve selamlamayı göster.
   // Bu sayede kullanıcı ilk mesajını gönderdiğinde bot zaten hazır olur.
   useEffect(() => {
-    const activeAgent = getAgent(agent)
-    const schemaName = activeAgent?.agentId
     if (!schemaName || schemaName === "agent-id") return
 
     copilotClientRef.current = null
@@ -226,6 +261,11 @@ export function ChatScreen({ onReset, initialAgent }) {
 
     async function initConversation() {
       const greetingId = makeId()
+      // Init (greeting + auto-submit) boyunca composer'ı KİLİTLE. Aksi halde
+      // kullanıcı network beklerken yazıp gönderebiliyor ve init'in yanıtı onun
+      // mesajından sonra listeye eklenip "sanki bu cevap geldi" karmaşası yaratıyor.
+      setBusy(true)
+      setOrbState("thinking")
       // Konuşmayı SIFIRDAN başlat: Copilot sunucu konuşması reload/agent
       // değişiminde devam ettirilemez, bu yüzden eski (ölü) mesajları temizle
       // ve tek bir selamlama baloncuğu göster — yığılmayı önler.
@@ -269,14 +309,20 @@ export function ChatScreen({ onReset, initialAgent }) {
         console.error("Copilot init error:", err)
       } finally {
         // Init ne olursa olsun (başarı / abort / hata) kapıyı aç ki handleSend
-        // sonsuza kadar beklemesin.
+        // sonsuza kadar beklemesin. Yalnızca hâlâ güncel tur isek composer'ı aç.
         resolveReady()
+        if (abortGenRef.current === gen) {
+          setBusy(false)
+          setOrbState((s) => (s === "thinking" ? "idle" : s))
+        }
       }
     }
 
     initConversation()
+  // schemaName: agents async yüklenince init'in tetiklenmesi için şart.
+  // resetNonce: header "yeni sohbet" ile aynı mount'ta yeniden başlatma.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent])
+  }, [agent, schemaName, resetNonce])
 
   // Bir Copilot generator'ını tüketir, tek bir assistant baloncuğunu
   // streaming boyunca günceller (text + kartlar + suggestedActions).
@@ -316,6 +362,7 @@ export function ChatScreen({ onReset, initialAgent }) {
     setIsNearBottom(true)
     setMessages((m) => [...m, { id: makeId(), role: "user", content: action.title, time: new Date() }])
     setOrbState("thinking")
+    setBusy(true)
     const gen = ++abortGenRef.current
     try {
       const generator = kind === "action"
@@ -329,6 +376,8 @@ export function ChatScreen({ onReset, initialAgent }) {
     } catch (err) {
       console.error("Suggested action error:", err)
       setOrbState("idle")
+    } finally {
+      if (abortGenRef.current === gen) setBusy(false)
     }
   }
 
@@ -341,6 +390,7 @@ export function ChatScreen({ onReset, initialAgent }) {
     setMessages((m) => [...m, userMsg])
     setInput("")
     setOrbState("thinking")
+    setBusy(true)
 
     // KRİTİK: init akışı (greeting + auto-submit) tamamen bitene kadar bekle.
     // gen'i bundan ÖNCE artırmıyoruz; yoksa init'in turunu yarıda kesip aynı
@@ -349,28 +399,28 @@ export function ChatScreen({ onReset, initialAgent }) {
     await conversationReadyRef.current
 
     const gen = ++abortGenRef.current
-    const activeAgent = getAgent(agent)
-    const schemaName = activeAgent?.agentId
-
-    if (!schemaName || schemaName === "agent-id") {
-      // Agent henüz yapılandırılmamış — mock fallback
-      await new Promise((r) => setTimeout(r, 1000))
-      if (abortGenRef.current !== gen) return
-      const replyText = activeAgent?.description?.trim() || `${activeAgent?.name ?? "Agent"} — ${t("chat.subtitle.lead")} ${t("chat.subtitle.highlight")}`
-      setMessages((m) => [...m, { id: makeId(), role: "assistant", agent, content: replyText, time: new Date() }])
-      setOrbState("speaking")
-      setTimeout(() => setOrbState("idle"), 2400)
-      return
-    }
-
-    // Bot hazır değilse bekle (startConversation hâlâ çalışıyor olabilir)
-    if (!copilotClientRef.current || copilotClientRef.current.agentId !== agent) {
-      setMessages((m) => [...m, { id: makeId(), role: "assistant", agent, content: t("chat.error") || "Agent bağlanıyor, lütfen bir saniye bekleyin.", attachments: [], time: new Date() }])
-      setOrbState("idle")
-      return
-    }
-
     try {
+      const activeAgent = getAgent(agent)
+      const schemaName = activeAgent?.agentId
+
+      if (!schemaName || schemaName === "agent-id") {
+        // Agent henüz yapılandırılmamış — mock fallback
+        await new Promise((r) => setTimeout(r, 1000))
+        if (abortGenRef.current !== gen) return
+        const replyText = activeAgent?.description?.trim() || `${activeAgent?.name ?? "Agent"} — ${t("chat.subtitle.lead")} ${t("chat.subtitle.highlight")}`
+        setMessages((m) => [...m, { id: makeId(), role: "assistant", agent, content: replyText, time: new Date() }])
+        setOrbState("speaking")
+        setTimeout(() => setOrbState("idle"), 2400)
+        return
+      }
+
+      // Bot hazır değilse bekle (startConversation hâlâ çalışıyor olabilir)
+      if (!copilotClientRef.current || copilotClientRef.current.agentId !== agent) {
+        setMessages((m) => [...m, { id: makeId(), role: "assistant", agent, content: t("chat.error") || "Agent bağlanıyor, lütfen bir saniye bekleyin.", attachments: [], time: new Date() }])
+        setOrbState("idle")
+        return
+      }
+
       const client = copilotClientRef.current.client
       const res = await streamReply(sendMessage(client, text), gen)
       if (res.aborted) return
@@ -382,6 +432,8 @@ export function ChatScreen({ onReset, initialAgent }) {
       console.error("Copilot Studio error:", err)
       setMessages((m) => [...m, { id: makeId(), role: "assistant", agent, content: t("chat.error") || "Bağlantı hatası oluştu.", attachments: [], time: new Date() }])
       setOrbState("idle")
+    } finally {
+      if (abortGenRef.current === gen) setBusy(false)
     }
   }
 
@@ -391,6 +443,7 @@ export function ChatScreen({ onReset, initialAgent }) {
     if (!client) return
     const gen = ++abortGenRef.current
     setOrbState("thinking")
+    setBusy(true)
     try {
       const res = await streamReply(sendAction(client, actionData), gen)
       if (res.aborted) return
@@ -400,16 +453,20 @@ export function ChatScreen({ onReset, initialAgent }) {
     } catch (err) {
       console.error("Card action error:", err)
       setOrbState("idle")
+    } finally {
+      if (abortGenRef.current === gen) setBusy(false)
     }
   }
 
   function handleResetLocal() {
-    setMessages([])
     clearMessages(agent)
     setOrbState("idle")
     setInput("")
     setUnread(0)
     setIsNearBottom(true)
+    // Copilot konuşmasını sıfırdan başlat: init effect'i resetNonce ile yeniden
+    // tetikle (eski client/mesajları temizleyip yeni greeting'i getirir).
+    setResetNonce((n) => n + 1)
     onReset?.()
   }
 
@@ -448,7 +505,7 @@ export function ChatScreen({ onReset, initialAgent }) {
           onAgentChange={(id) => setAgent(id)}
           onMicToggle={handleMicToggle}
           micActive={orbState === "listening"}
-          disabled={orbState === "thinking"}
+          disabled={busy}
           className="mt-8 w-full max-w-3xl sm:mt-12"
         />
         <div className="mt-4 sm:mt-5">
@@ -458,7 +515,6 @@ export function ChatScreen({ onReset, initialAgent }) {
     )
   }
 
-  const activeAgent = getAgent(agent)
   // Canonical 3-row chat layout:
   //   row 1: header  (auto)
   //   row 2: scroll  (flex-1 min-h-0 overflow-y-auto overscroll-contain)
@@ -526,11 +582,13 @@ export function ChatScreen({ onReset, initialAgent }) {
             document.activeElement.blur()
           }
         }}
-        className="relative flex-1 min-h-0 space-y-4 overflow-y-auto overscroll-contain px-1 py-3"
+        className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain px-1 py-3"
       >
-        {messages.map((m) => (
-          <ChatMessage key={m.id} message={m} onCardAction={handleCardAction} onSuggestedAction={handleSuggestedAction} />
-        ))}
+        <div ref={contentRef} className="space-y-4">
+          {messages.map((m) => (
+            <ChatMessage key={m.id} message={m} onCardAction={handleCardAction} onSuggestedAction={handleSuggestedAction} />
+          ))}
+        </div>
       </div>
 
       {/* Floating new-message pill — appears above the composer when the user
@@ -576,7 +634,7 @@ export function ChatScreen({ onReset, initialAgent }) {
           onAgentChange={(id) => setAgent(id)}
           onMicToggle={handleMicToggle}
           micActive={orbState === "listening"}
-          disabled={orbState === "thinking"}
+          disabled={busy}
         />
       </div>
     </div>

@@ -1031,6 +1031,15 @@ html {
   margin-top: 0.5rem;
 }
 
+/* ── Chat "yazıyor" üç-nokta göstergesi ─────────────────────────── */
+@keyframes chat-typing {
+  0%, 70%, 100% { transform: translateY(0); opacity: 0.35; }
+  35% { transform: translateY(-5px); opacity: 1; }
+}
+.chat-typing-dot {
+  animation: chat-typing 1.1s infinite ease-in-out;
+}
+
 /* ── Reduced motion ─────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -1039,4 +1048,15 @@ html {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  /* "Yazıyor" göstergesi bir ilerleme sinyali — donması yanıltıcı olur.
+     Reduced-motion altında bile büyük hareket olmadan (sadece opaklık)
+     sürekli döner. Daha yüksek specificity + shorthand !important ile
+     yukarıdaki global iteration-count:1 kuralını ezer. */
+  .chat-typing-dot {
+    animation: chat-typing-fade 1.4s infinite ease-in-out !important;
+  }
+}
+@keyframes chat-typing-fade {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
 }
