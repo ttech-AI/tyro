@@ -920,6 +920,117 @@ html {
   }
 }
 
+/* ── Adaptive Cards (Copilot Studio) ────────────────────────────────
+   The official adaptivecards renderer injects inline styles for layout +
+   colors (driven by our HostConfig), but interactive controls only get
+   class names. We restyle those to match the app's inputs/buttons and
+   add palette-aware accents. Container bg is transparent (the bubble
+   wrapper supplies the card surface). */
+.ac-host {
+  font-size: 0.875rem;
+}
+.ac-host p {
+  margin: 0.25rem 0;
+}
+.ac-host a {
+  color: var(--brand-via);
+  text-decoration: none;
+}
+.ac-host a:hover {
+  text-decoration: underline;
+}
+/* Text + number + date + time inputs */
+.ac-host .ac-input.ac-textInput,
+.ac-host .ac-input.ac-numberInput,
+.ac-host .ac-input.ac-dateInput,
+.ac-host .ac-input.ac-timeInput,
+.ac-host input.ac-input,
+.ac-host textarea.ac-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--background);
+  color: var(--foreground);
+  padding: 0.4rem 0.65rem;
+  font-size: 0.875rem;
+  outline: none;
+}
+.ac-host .ac-input:focus,
+.ac-host input.ac-input:focus,
+.ac-host select.ac-input:focus,
+.ac-host textarea.ac-input:focus {
+  border-color: var(--brand-via);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--brand-via) 30%, transparent);
+}
+/* Dropdown (ChoiceSet compact) */
+.ac-host select.ac-input,
+.ac-host .ac-multichoiceInput {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--background);
+  color: var(--foreground);
+  padding: 0.4rem 0.65rem;
+  font-size: 0.875rem;
+}
+/* Checkboxes + radios (expanded ChoiceSet, Toggle) */
+.ac-host input[type="checkbox"],
+.ac-host input[type="radio"] {
+  accent-color: var(--brand-via);
+  width: 1rem;
+  height: 1rem;
+}
+.ac-host .ac-choiceSetInput-expanded label,
+.ac-host .ac-toggleInput label {
+  font-size: 0.875rem;
+  color: var(--foreground);
+  cursor: pointer;
+}
+/* Input labels */
+.ac-host .ac-input-label {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  margin-bottom: 0.2rem;
+}
+/* Action buttons */
+.ac-host .ac-pushButton {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--muted);
+  color: var(--foreground);
+  padding: 0.45rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s;
+}
+.ac-host .ac-pushButton:hover {
+  background: var(--accent);
+}
+.ac-host .ac-pushButton.style-positive {
+  background: var(--brand-via);
+  color: #fff;
+  border-color: transparent;
+}
+.ac-host .ac-pushButton.style-positive:hover {
+  opacity: 0.9;
+  background: var(--brand-via);
+}
+.ac-host .ac-pushButton.style-destructive {
+  background: var(--destructive);
+  color: #fff;
+  border-color: transparent;
+}
+.ac-host .ac-pushButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Action row spacing */
+.ac-host .ac-actionSet {
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
 /* ── Reduced motion ─────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

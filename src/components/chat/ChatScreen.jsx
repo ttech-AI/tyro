@@ -13,7 +13,7 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { useMe } from "@/hooks/useMe"
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis"
 import { loadMessages, saveMessages, clearMessages } from "@/lib/chatPersistence"
-import { startConversation, sendMessage, sendAction } from "@/lib/copilot"
+import { startConversation, sendMessage, sendAction, resolveSuggestedAction } from "@/lib/copilot"
 import { cn } from "@/lib/utils"
 
 function extractSubmitActions(items) {
@@ -64,6 +64,10 @@ export function ChatScreen({ onReset, initialAgent }) {
   const typingTimerRef = useRef(null)
   const copilotClientRef = useRef(null)
   const abortGenRef = useRef(0)
+  // Konuşma hazır-kapısı: init akışı (startConversation + greeting auto-submit)
+  // TAMAMEN bitene kadar resolve OLMAZ. handleSend bunu bekleyerek aynı sunucu
+  // konuşmasına ikinci bir turun çakışmasını (→ "Sohbet durduruldu") önler.
+  const conversationReadyRef = useRef(Promise.resolve())
   // Scroll-trap state — auto-scroll only when isNearBottom; otherwise count
   // unseen messages and surface a pill.
   const [isNearBottom, setIsNearBottom] = useState(true)
@@ -216,12 +220,19 @@ export function ChatScreen({ onReset, initialAgent }) {
 
     copilotClientRef.current = null
     const gen = ++abortGenRef.current
+    // Yeni bir hazır-kapısı kur; init tamamen bitince (finally) resolve edilir.
+    let resolveReady
+    conversationReadyRef.current = new Promise((r) => { resolveReady = r })
 
     async function initConversation() {
       const greetingId = makeId()
-      setMessages((m) => [...m, { id: greetingId, role: "assistant", agent, content: "", attachments: [], time: new Date() }])
+      // Konuşmayı SIFIRDAN başlat: Copilot sunucu konuşması reload/agent
+      // değişiminde devam ettirilemez, bu yüzden eski (ölü) mesajları temizle
+      // ve tek bir selamlama baloncuğu göster — yığılmayı önler.
+      setMessages([{ id: greetingId, role: "assistant", agent, content: "", attachments: [], time: new Date() }])
       let greetingText = ""
       let greetingAttachments = []
+      let greetingSuggested = []
       let copilotClient = null
       try {
         for await (const chunk of startConversation(schemaName)) {
@@ -233,42 +244,93 @@ export function ChatScreen({ onReset, initialAgent }) {
           }
           greetingText = chunk.text
           greetingAttachments = chunk.attachments || []
-          setMessages((m) => m.map((msg) => msg.id === greetingId ? { ...msg, content: greetingText, attachments: greetingAttachments } : msg))
+          greetingSuggested = chunk.suggestedActions || []
+          setMessages((m) => m.map((msg) => msg.id === greetingId ? { ...msg, content: greetingText, attachments: greetingAttachments, suggestedActions: greetingSuggested } : msg))
         }
-      } catch (err) {
-        console.error("Copilot init error:", err)
-      }
-      if (abortGenRef.current !== gen) return
-      if (!greetingText && !greetingAttachments.length) {
-        setMessages((m) => m.filter((msg) => msg.id !== greetingId))
-      }
+        if (abortGenRef.current !== gen) return
+        if (!greetingText && !greetingAttachments.length && !greetingSuggested.length) {
+          setMessages((m) => m.filter((msg) => msg.id !== greetingId))
+        }
 
-      // Selamlama kartındaki ilk Action.Submit'i otomatik gönder.
-      // Bot diyalogu "başlat" butonuna tıklanmış gibi ilerler — kullanıcı
-      // ilk mesajını gönderdiğinde bot doğru state'te hazır bekler.
-      if (copilotClient && greetingAttachments.length) {
-        const firstCard = greetingAttachments.find((a) => a.contentType === "application/vnd.microsoft.card.adaptive")
-        if (firstCard?.content) {
-          const actions = extractSubmitActions(firstCard.content.body || [])
-          console.log("[copilot] greeting actions found:", JSON.stringify(actions))
-          const firstAction = actions.find((a) => a.style === "positive") || actions[0]
-          // data yoksa {} gönder — buton data olmadan da geçerli bir submit olabilir
-          if (firstAction) {
-            try {
-              for await (const _ of sendAction(copilotClient, firstAction.data ?? {})) {
-                if (abortGenRef.current !== gen) return
-              }
-            } catch (err) {
-              console.warn("Auto-submit greeting action failed:", err)
+        // Selamlama kartındaki ilk Action.Submit'i otomatik gönder ve YANITI
+        // GÖRÜNÜR yap (menüyü göster). Bu tur init'in içinde, kullanıcı turundan
+        // ÖNCE bitmeli — handleSend hazır-kapısını beklediği için çakışmaz.
+        if (copilotClient && greetingAttachments.length) {
+          const firstCard = greetingAttachments.find((a) => a.contentType === "application/vnd.microsoft.card.adaptive")
+          if (firstCard?.content) {
+            const actions = extractSubmitActions(firstCard.content.body || [])
+            const firstAction = actions.find((a) => a.style === "positive") || actions[0]
+            if (firstAction) {
+              await streamReply(sendAction(copilotClient, firstAction.data ?? {}), gen)
             }
           }
         }
+      } catch (err) {
+        console.error("Copilot init error:", err)
+      } finally {
+        // Init ne olursa olsun (başarı / abort / hata) kapıyı aç ki handleSend
+        // sonsuza kadar beklemesin.
+        resolveReady()
       }
     }
 
     initConversation()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent])
+
+  // Bir Copilot generator'ını tüketir, tek bir assistant baloncuğunu
+  // streaming boyunca günceller (text + kartlar + suggestedActions).
+  // İçerik gelmezse baloncuğu kaldırır. Abort olursa { aborted:true } döner.
+  async function streamReply(generator, gen) {
+    const replyId = makeId()
+    setMessages((m) => [...m, { id: replyId, role: "assistant", agent, content: "", attachments: [], suggestedActions: [], time: new Date() }])
+    let fullText = ""
+    let fullAttachments = []
+    let fullSuggested = []
+    for await (const chunk of generator) {
+      if (abortGenRef.current !== gen) return { aborted: true }
+      if (chunk.done) break
+      fullText = chunk.text
+      fullAttachments = chunk.attachments || []
+      fullSuggested = chunk.suggestedActions || []
+      setMessages((m) => m.map((msg) => msg.id === replyId ? { ...msg, content: fullText, attachments: fullAttachments, suggestedActions: fullSuggested } : msg))
+    }
+    if (!fullText && !fullAttachments.length && !fullSuggested.length) {
+      setMessages((m) => m.filter((msg) => msg.id !== replyId))
+    }
+    return { fullText, fullAttachments, fullSuggested }
+  }
+
+  // suggestedActions chip'ine tıklanınca: imBack/messageBack → mesaj gönder,
+  // postBack → action gönder, openUrl → yeni sekme.
+  async function handleSuggestedAction(action) {
+    const { kind, payload } = resolveSuggestedAction(action)
+    if (kind === "url") {
+      if (payload) window.open(payload, "_blank", "noopener,noreferrer")
+      return
+    }
+    await conversationReadyRef.current
+    const client = copilotClientRef.current?.client
+    if (!client) return
+    // Kullanıcının seçimini kendi baloncuğu olarak göster
+    setIsNearBottom(true)
+    setMessages((m) => [...m, { id: makeId(), role: "user", content: action.title, time: new Date() }])
+    setOrbState("thinking")
+    const gen = ++abortGenRef.current
+    try {
+      const generator = kind === "action"
+        ? sendAction(client, typeof payload === "object" ? payload : { value: payload })
+        : sendMessage(client, String(payload))
+      const res = await streamReply(generator, gen)
+      if (res.aborted) return
+      setOrbState("speaking")
+      if (res.fullText) speak(res.fullText, { lang: locale === "tr" ? "tr-TR" : "en-US", rate: 0.95 })
+      setTimeout(() => setOrbState("idle"), 2400)
+    } catch (err) {
+      console.error("Suggested action error:", err)
+      setOrbState("idle")
+    }
+  }
 
   async function handleSend() {
     const text = input.trim()
@@ -279,6 +341,12 @@ export function ChatScreen({ onReset, initialAgent }) {
     setMessages((m) => [...m, userMsg])
     setInput("")
     setOrbState("thinking")
+
+    // KRİTİK: init akışı (greeting + auto-submit) tamamen bitene kadar bekle.
+    // gen'i bundan ÖNCE artırmıyoruz; yoksa init'in turunu yarıda kesip aynı
+    // konuşmaya çakışan ikinci tur göndererek "Sohbet durduruldu" hatasını
+    // tetikleriz.
+    await conversationReadyRef.current
 
     const gen = ++abortGenRef.current
     const activeAgent = getAgent(agent)
@@ -304,23 +372,10 @@ export function ChatScreen({ onReset, initialAgent }) {
 
     try {
       const client = copilotClientRef.current.client
-
-      // Kullanıcının mesajını gönder ve streaming yanıtı al
-      const replyId = makeId()
-      setMessages((m) => [...m, { id: replyId, role: "assistant", agent, content: "", attachments: [], time: new Date() }])
-      let fullText = ""
-      let fullAttachments = []
-      for await (const chunk of sendMessage(client, text)) {
-        if (abortGenRef.current !== gen) return
-        if (chunk.done) break
-        fullText = chunk.text
-        fullAttachments = chunk.attachments || []
-        setMessages((m) => m.map((msg) => msg.id === replyId ? { ...msg, content: fullText, attachments: fullAttachments } : msg))
-      }
-      // Yanıt içerik yoksa bubble'ı kaldır
-      if (!fullText && !fullAttachments.length) setMessages((m) => m.filter((msg) => msg.id !== replyId))
+      const res = await streamReply(sendMessage(client, text), gen)
+      if (res.aborted) return
       setOrbState("speaking")
-      if (fullText) speak(fullText, { lang: locale === "tr" ? "tr-TR" : "en-US", rate: 0.95 })
+      if (res.fullText) speak(res.fullText, { lang: locale === "tr" ? "tr-TR" : "en-US", rate: 0.95 })
       setTimeout(() => setOrbState("idle"), 2400)
     } catch (err) {
       if (abortGenRef.current !== gen) return
@@ -331,25 +386,16 @@ export function ChatScreen({ onReset, initialAgent }) {
   }
 
   async function handleCardAction(actionData) {
+    await conversationReadyRef.current
     const client = copilotClientRef.current?.client
     if (!client) return
     const gen = ++abortGenRef.current
     setOrbState("thinking")
-    const replyId = makeId()
-    setMessages((m) => [...m, { id: replyId, role: "assistant", agent, content: "", attachments: [], time: new Date() }])
-    let fullText = ""
-    let fullAttachments = []
     try {
-      for await (const chunk of sendAction(client, actionData)) {
-        if (abortGenRef.current !== gen) return
-        if (chunk.done) break
-        fullText = chunk.text
-        fullAttachments = chunk.attachments || []
-        setMessages((m) => m.map((msg) => msg.id === replyId ? { ...msg, content: fullText, attachments: fullAttachments } : msg))
-      }
-      if (!fullText && !fullAttachments.length) setMessages((m) => m.filter((msg) => msg.id !== replyId))
+      const res = await streamReply(sendAction(client, actionData), gen)
+      if (res.aborted) return
       setOrbState("speaking")
-      if (fullText) speak(fullText, { lang: locale === "tr" ? "tr-TR" : "en-US", rate: 0.95 })
+      if (res.fullText) speak(res.fullText, { lang: locale === "tr" ? "tr-TR" : "en-US", rate: 0.95 })
       setTimeout(() => setOrbState("idle"), 2400)
     } catch (err) {
       console.error("Card action error:", err)
@@ -483,7 +529,7 @@ export function ChatScreen({ onReset, initialAgent }) {
         className="relative flex-1 min-h-0 space-y-4 overflow-y-auto overscroll-contain px-1 py-3"
       >
         {messages.map((m) => (
-          <ChatMessage key={m.id} message={m} onCardAction={handleCardAction} />
+          <ChatMessage key={m.id} message={m} onCardAction={handleCardAction} onSuggestedAction={handleSuggestedAction} />
         ))}
       </div>
 

@@ -23,34 +23,63 @@ export function createCopilotClient(schemaName) {
   return { settings }
 }
 
+// Maps a Bot Framework activity to our chunk shape. Captures text, card
+// attachments AND suggestedActions (the quick-reply buttons menu-driven
+// bots use, e.g. İşlemler / D365 / TİBOT) which live outside attachments.
+function activityToChunk(activity) {
+  const suggested = activity?.suggestedActions?.actions || []
+  const hasContent = activity?.text || activity?.attachments?.length || suggested.length
+  if (!hasContent) return null
+  return {
+    text: activity.text || "",
+    attachments: activity.attachments || [],
+    suggestedActions: suggested,
+    done: false,
+  }
+}
+
 // Returns an async generator that yields text chunks as they stream in.
-// Usage: for await (const chunk of sendMessage(client, token, text)) { ... }
 export async function* startConversation(schemaName) {
   const token = await getToken()
   const { settings } = createCopilotClient(schemaName)
   const client = new CopilotStudioClient(settings, token)
 
   for await (const activity of client.startConversationStreaming()) {
-    const hasContent = activity?.text || activity?.attachments?.length
-    if (hasContent) yield { text: activity.text || "", attachments: activity.attachments || [], done: false }
+    const chunk = activityToChunk(activity)
+    if (chunk) yield chunk
   }
-  yield { text: "", attachments: [], done: true, client }
+  yield { text: "", attachments: [], suggestedActions: [], done: true, client }
 }
 
 export async function* sendMessage(client, text) {
   const activity = { type: "message", text }
   for await (const reply of client.sendActivityStreaming(activity)) {
-    const hasContent = reply?.text || reply?.attachments?.length
-    if (hasContent) yield { text: reply.text || "", attachments: reply.attachments || [], done: false }
+    const chunk = activityToChunk(reply)
+    if (chunk) yield chunk
   }
-  yield { text: "", attachments: [], done: true }
+  yield { text: "", attachments: [], suggestedActions: [], done: true }
 }
 
 export async function* sendAction(client, actionData) {
   const activity = { type: "message", value: actionData }
   for await (const reply of client.sendActivityStreaming(activity)) {
-    const hasContent = reply?.text || reply?.attachments?.length
-    if (hasContent) yield { text: reply.text || "", attachments: reply.attachments || [], done: false }
+    const chunk = activityToChunk(reply)
+    if (chunk) yield chunk
   }
-  yield { text: "", attachments: [], done: true }
+  yield { text: "", attachments: [], suggestedActions: [], done: true }
+}
+
+// imBack/messageBack quick replies: imBack sends the title as a user message;
+// messageBack/postBack send the value. Returns { kind, payload } for the caller.
+export function resolveSuggestedAction(action) {
+  if (action.type === "imBack" || action.type === "messageBack") {
+    return { kind: "message", payload: action.value ?? action.title }
+  }
+  if (action.type === "postBack") {
+    return { kind: "action", payload: action.value ?? action.title }
+  }
+  if (action.type === "openUrl") {
+    return { kind: "url", payload: action.value }
+  }
+  return { kind: "message", payload: action.title }
 }
