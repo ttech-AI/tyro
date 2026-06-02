@@ -1,5 +1,5 @@
-import { memo, useState } from "react"
-import { motion } from "motion/react"
+import { memo, useEffect, useState } from "react"
+import { motion, AnimatePresence } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Copy01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
@@ -16,17 +16,43 @@ import { AdaptiveCardView } from "./AdaptiveCardView"
 
 const TIME_FORMAT_OPTIONS = { hour: "2-digit", minute: "2-digit" }
 
-// "Yazıyor" göstergesi — bot yanıt üretirken üç nokta zıplama animasyonu.
-function TypingDots() {
+// "Yazıyor" göstergesi — premium: brand-gradient shimmer ile parlayan, yumuşak
+// crossfade ile ilerleyen durum kelimesi + ince nokta dalgası. Kelimeler doğal
+// bir ilerleme verir (Düşünüyor → Yanıt hazırlanıyor → Neredeyse hazır) ve son
+// adımda bekler (yanıt gecikse de "başa sarmaz").
+function TypingIndicator() {
+  const { t } = useLocale()
+  const phrases = [t("chat.typing.0"), t("chat.typing.1"), t("chat.typing.2")]
+  const [step, setStep] = useState(0)
+  useEffect(() => {
+    if (step >= phrases.length - 1) return
+    const id = setTimeout(() => setStep((s) => s + 1), 1600)
+    return () => clearTimeout(id)
+  }, [step, phrases.length])
+
   return (
-    <span aria-label="..." className="inline-flex items-center gap-1 py-1">
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="chat-typing-dot size-1.5 rounded-full bg-muted-foreground/70"
-          style={{ animationDelay: `${i * 0.18}s` }}
-        />
-      ))}
+    <span aria-live="polite" aria-label={phrases[step]} className="inline-flex items-center gap-2 py-0.5">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={step}
+          initial={{ opacity: 0, y: 6, filter: "blur(3px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          exit={{ opacity: 0, y: -6, filter: "blur(3px)" }}
+          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+          className="chat-shimmer-text text-sm font-medium tracking-tight"
+        >
+          {phrases[step]}
+        </motion.span>
+      </AnimatePresence>
+      <span aria-hidden className="inline-flex items-center gap-[3px]">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="chat-typing-dot size-1 rounded-full bg-brand-via/70"
+            style={{ animationDelay: `${i * 0.18}s` }}
+          />
+        ))}
+      </span>
     </span>
   )
 }
@@ -151,7 +177,7 @@ function ChatMessageInner({ message, onCardAction, onSuggestedAction }) {
           )}
           {!message.content && !message.attachments?.length && !message.suggestedActions?.length && (
             <div className="rounded-2xl rounded-tl-md border border-border bg-card px-4 py-2.5">
-              <TypingDots />
+              <TypingIndicator />
             </div>
           )}
           {message.suggestedActions?.length > 0 && (

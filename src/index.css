@@ -1090,6 +1090,29 @@ html {
   animation: chat-typing 1.1s infinite ease-in-out;
 }
 
+/* Premium "yazıyor" kelimesi — nötr metin üzerinde brand renkli bir ışık
+   bandının soldan sağa süzülmesi (skeleton-shimmer'ın metin sürümü). */
+.chat-shimmer-text {
+  background-image: linear-gradient(
+    100deg,
+    var(--muted-foreground) 0%,
+    var(--muted-foreground) 38%,
+    var(--brand-via) 50%,
+    var(--muted-foreground) 62%,
+    var(--muted-foreground) 100%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: chat-shimmer 2.4s linear infinite;
+}
+@keyframes chat-shimmer {
+  0% { background-position: 150% 0; }
+  100% { background-position: -150% 0; }
+}
+
 /* ── Reduced motion ─────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

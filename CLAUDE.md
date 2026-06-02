@@ -176,7 +176,7 @@ The SPA is wired to a real Dataverse environment for the launcher items. ConfigP
 - `create_alternate_key.py` — idempotent creation of `tyro_NameTypeKey` (`tyro_name + tyro_type`) for upsert idempotency
 - `pull_solution.py` — **run after ANY metadata change** (column, choice value, view, form, alternate key, relationship). Verifies pac is on the right org, exports `TYROAIPlatform`, unpacks atomically into `solutions/TYROAIPlatform/`, prints a git diff summary. Data changes (rows in Settings or `import_seed_data.py`) are NOT part of the solution and don't need a re-pull.
 
-**`.env`** (gitignored) provides `DATAVERSE_URL`, `TENANT_ID`, `MCP_CLIENT_ID`, `SOLUTION_NAME`, `PUBLISHER_PREFIX`, `PAC_AUTH_PROFILE` to the scripts. Also `VITE_MSAL_CLIENT_ID` + `VITE_MSAL_TENANT_ID` for the SPA's MSAL config.
+**`.env`** (gitignored) provides `DATAVERSE_URL`, `TENANT_ID`, `MCP_CLIENT_ID`, `SOLUTION_NAME`, `PUBLISHER_PREFIX`, `PAC_AUTH_PROFILE` to the scripts. Also `VITE_MSAL_CLIENT_ID` + `VITE_MSAL_TENANT_ID` for the SPA's MSAL config, `VITE_DATAVERSE_URL` for the launcher Web API, `VITE_COPILOT_ENVIRONMENT_ID` for the Copilot Studio chat environment, and optional `VITE_COPILOT_DATAVERSE_URL` to hard-target the agents' env for icon fetch (skips Global Discovery).
 
 **Solution source-of-truth rule**: the unpacked XML under `solutions/TYROAIPlatform/` is the canonical schema. Cloud edits via maker.powerapps.com or `pac` are allowed, but **every such change must be followed by `python scripts/pull_solution.py` + `git commit`** so the repo doesn't drift. CI/another env can rebuild from the repo via `pac solution pack` + `pac solution import`.
 
@@ -213,13 +213,36 @@ The SPA acquires a Dataverse delegated access token through `@azure/msal-browser
 - **idle** — subtle pulse + waveform visible
 - **listening** — focus ring + 3 outward ripples (activated when user types)
 - **thinking** — particle convergence + violet rotation (activated on send)
-- **speaking** — level-reactive scale (random 0.22–1.0 oscillating during a fake 2.4s reply window)
+- **speaking** — level-reactive scale (random 0.22–1.0) during a 2.4s post-reply visual window. **No audio** — auto-TTS on replies was removed; only the orb-click greeting speaks (`handleOrbClick` → `useSpeechSynthesis`).
 
-Mock reply flow: on `handleSend`, user message appended → orb `thinking` → 1.5s wait → assistant reply (uses agent's `description` from ConfigProvider, falls back to greeting concat) → orb `speaking` → after 2.4s → `idle`.
+**Empty-state welcome**: `isEmpty` is true when no message has *renderable* content (ignores the content-less placeholder bubble the init flow inserts), so the orb welcome screen stays — with the orb in `thinking` mode as the loading cue — until the greeting actually streams in. Don't revert `isEmpty` to a plain `messages.length === 0` or the open flash returns.
+
+**Reply flow is real Copilot Studio, not mock** (see next section). `handleSend`/`handleSuggestedAction`/`handleCardAction` all: append the user turn → `setBusy(true)` + orb `thinking` → `await conversationReadyRef.current` (the init-flow gate) → `streamReply(...)` updating a single assistant bubble as chunks arrive → orb `speaking` 2.4s → `idle`. `abortGenRef` (a monotonically increasing generation counter) cancels stale streams on agent change / reset; `busy` locks the composer only while the bot is genuinely generating.
 
 Orb's `--voiceorb-c1..c5` CSS variables are palette-aware (see `src/index.css` under each palette's voiceorb block). Default `:root` keeps the spec's pastel tones for Ocean Breeze v2, Peach Sorbet, Pastel Lavender; other palettes override.
 
 The Dashboard hero (`AppLauncher.jsx`) embeds a non-interactive PastelVoiceOrb (`state="idle"`, size 180) on the right — clicking it triggers `onNewChat`.
+
+## Copilot Studio chat integration
+
+The chat talks to **real Copilot Studio agents** via `@microsoft/agents-copilotstudio-client`, NOT Dataverse.
+
+- **`src/lib/copilot.js`** wraps the client. `startConversation(schemaName)` / `sendMessage(client, text)` / `sendAction(client, data)` are **async generators** yielding `{ text, attachments, suggestedActions, done }` chunks (Bot Framework activities mapped by `activityToChunk`). The agent's `agentId` IS the Copilot **schemaName**. `resolveSuggestedAction` maps imBack/messageBack/postBack/openUrl quick-replies.
+- **Auth is a separate scope from Dataverse**: `COPILOT_STUDIO_SCOPE = https://api.powerplatform.com/CopilotStudio.Copilots.Invoke` (in `msal.js`, also pre-consented via `loginRequest.extraScopesToConsent`). The environment is `VITE_COPILOT_ENVIRONMENT_ID` (default `Default-<tenant>`). **Consequence**: an agent's chat can work (invoke scope + env) while its Dataverse `bot` record is unreadable (needs `user_impersonation` read on that env's `bot` table) — these are independent permissions. Don't assume "chat works ⇒ bot row readable".
+- **ChatScreen init flow** (`useEffect` on `[agent, schemaName, resetNonce]`): inserts one empty placeholder assistant bubble, streams the greeting into it, then auto-submits the greeting card's first `Action.Submit` (the bot's menu). `conversationReadyRef` is a promise that resolves only when this whole init finishes — `handleSend` awaits it so a user turn can't collide with init on the same server conversation (which would trigger "Sohbet durduruldu"). Re-run init in the same mount via `setResetNonce` (header "yeni sohbet"); the sidebar "Yeni sohbet" remounts via the route `?reset=` key instead.
+- **Persistence**: `src/lib/chatPersistence.js` mirrors messages to **sessionStorage** per-agent (survives in-tab nav, clears on tab close — matches ChatGPT). The Copilot *server* conversation can't be resumed, so init always restarts it.
+
+## Adaptive Cards rendering
+
+`src/components/chat/AdaptiveCardView.jsx` renders Copilot card attachments with Microsoft's official `adaptivecards` SDK (full schema, every input/action). Non-obvious rules:
+
+- **HostConfig is built from live CSS variables** (`buildHostConfig` reads `--foreground`, `--brand-via`, etc.) so cards follow the active palette + light/dark; rebuilt on `theme` change. Interactive controls only get class names → restyled in `src/index.css` under `.ac-host` (inputs, buttons, **mobile-responsive** column-stacking + image clamping, Fluent-icon recolor on positive/dark buttons).
+- **`icon:<Name>` scheme**: Copilot sends button icons as Fluent System Icon refs (e.g. `icon:Eye`), which the SDK would try to load as a URL → `ERR_UNKNOWN_URL_SCHEME`. `rewriteIconScheme` (run on a clone before `parse`) converts them to Fluent SVG CDN URLs (`unpkg.com/@fluentui/svg-icons`, snake_cased). Icons that still fail to load are hidden via an `onerror` handler.
+- **Markdown**: text goes through `markdown-it` (`onProcessMarkdown`). Bot text in both cards and the chat bubble is first passed through **`normalizeBotMarkdown`** (`src/lib/markdown.js`) which converts raw `<br>`/`<hr>` HTML (Copilot emits these) to CommonMark — our renderers keep raw HTML off for safety, so without this the tags show as literal text. Chat bubbles use `react-markdown` + `remark-gfm` (GFM tables, styled via `prose-table:*` in `ChatMessage.jsx`).
+
+## Agent icons from the Copilot `bot` table (cross-environment)
+
+`dv.fetchBotIcons(schemaNames)` (`src/lib/dataverse.js`) enriches agents with their **real Copilot Studio icon**. The conversation SDK exposes no icon, so the icon is read from the Dataverse `bot` table's **`iconbase64`** (Memo) column — there is no image-type column on `bot`, so it discovers icon-ish columns by name pattern, not a fixed name. Agents usually live in a **different environment** than the launcher Dataverse (`tyro.crm4`), so it enumerates all reachable orgs via the **Global Discovery Service** (`globaldisco.crm.dynamics.com`), acquires a per-org token (`<orgUrl>/user_impersonation`), and searches each for the missing `schemaName`s, merging results. Mime is sniffed from the base64 signature. `ConfigProvider` calls this only for agents lacking a cached `logo`, attaches the result as `logo` (rendered by `IconOrLogo` everywhere), and **degrades gracefully** to the hugeicon on any failure (403 on an inaccessible env, no match, etc.). The icon is cached in `localStorage`, so changing it in Copilot Studio won't refresh until the cache is cleared.
 
 ## Logo system
 
