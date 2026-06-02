@@ -1,6 +1,13 @@
 import { PublicClientApplication, EventType, LogLevel } from "@azure/msal-browser"
 
-// Build redirect URI from Vite's BASE_URL so it works in dev (/) and prod (/tyro/)
+// Redirect URI is derived from window.location.origin + Vite's BASE_URL, so
+// it stays correct across:
+//   - dev (http://localhost:5173/)
+//   - the custom domain (https://tyro.ttech.business/)
+//   - any future legacy fallback under a subpath
+// The Azure AD app registration must list every origin that actually serves
+// the SPA in its SPA redirect URI list — currently localhost, the custom
+// domain, and the legacy ttech-ai.github.io/tyro path.
 function buildOrigin() {
   if (typeof window === "undefined") return "/"
   return window.location.origin + import.meta.env.BASE_URL

@@ -5,9 +5,11 @@ import tailwindcss from "@tailwindcss/vite"
 import { VitePWA } from "vite-plugin-pwa"
 
 // https://vite.dev/config/
-export default defineConfig(({ command }) => ({
-  // Dev: /, Prod (GitHub Pages): /tyro/
-  base: command === "build" ? "/tyro/" : "/",
+export default defineConfig(() => ({
+  // Custom domain (tyro.ttech.business) serves from the root just like dev.
+  // The CNAME file in public/ tells GitHub Pages to bind the deployment to
+  // the custom domain, so the old "/tyro/" subpath base is no longer needed.
+  base: "/",
   plugins: [
     react(),
     tailwindcss(),
@@ -24,8 +26,8 @@ export default defineConfig(({ command }) => ({
         display: "standalone",
         orientation: "portrait",
         lang: "tr",
-        scope: command === "build" ? "/tyro/" : "/",
-        start_url: command === "build" ? "/tyro/" : "/",
+        scope: "/",
+        start_url: "/",
         icons: [
           {
             src: "pwa-icon.svg",
@@ -43,7 +45,7 @@ export default defineConfig(({ command }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,woff2,mp3}"],
-        navigateFallback: command === "build" ? "/tyro/index.html" : "/index.html",
+        navigateFallback: "/index.html",
         // Prefer fresh HTML so the popup callback always loads the latest inline
         // short-circuit script. Falls back to cache when offline.
         navigateFallbackDenylist: [/\?.*code=/, /#.*code=/],

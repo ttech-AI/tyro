@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 - `npm run dev` — start Vite dev server with HMR
-- `npm run build` — production build to `dist/` (uses `base: "/tyro/"` for GitHub Pages, `/` in dev)
+- `npm run build` — production build to `dist/` (root-relative `base: "/"`; the `public/CNAME` file binds GitHub Pages to the custom domain `tyro.ttech.business`)
 - `npm run preview` — serve the built `dist/` for local verification
 - `npm run lint` — ESLint over the whole repo (no autofix flag wired up; run `npx eslint . --fix` manually)
 
@@ -193,7 +193,7 @@ The SPA acquires a Dataverse delegated access token through `@azure/msal-browser
 - `src/providers/ConfigProvider.jsx` reads from Dataverse on `useIsAuthenticated()` flip, falls back to seed/localStorage on failure (e.g. permission not yet consented). Data (`state`) and transient `status` (`loading/error/source`) are **separate `useState`s** so a loading flip doesn't rewrite the localStorage cache or churn every consumer. The fetch **merges** the server snapshot rather than replacing it (`mergeServerData`): carries cached logos onto server rows (matched by id, then by name), keeps genuinely local-only rows (non-GUID id absent from the server), and **dedupes seed rows against the server by name+type** (mirrors the `tyro_NameTypeKey` alternate key) so seeds don't double up on the first authenticated load. CRUD is optimistic locally with a remote write behind it; `upsert`/`remove` are **async and throw on remote failure** — callers (`SettingsPage`) must `await` + `try/catch` and show an error toast, never report success optimistically.
 
 **Azure AD requirements** (set in app registration `1dfbb3bf-0faf-4d17-9d10-3bcb915083f6`):
-- Authentication → Platform: Single-page application. Redirect URIs include `https://ttech-ai.github.io/tyro/` and `http://localhost:5173/`.
+- Authentication → Platform: Single-page application. Redirect URIs include the production custom domain `https://tyro.ttech.business/`, the legacy GitHub Pages path `https://ttech-ai.github.io/tyro/` (still listed for fallback during migration), and `http://localhost:5173/`. The Vite redirectUri is derived from `window.location.origin + import.meta.env.BASE_URL` (see `src/lib/msal.js#buildOrigin`), so each origin must be listed explicitly in Azure AD.
 - API permissions: `Microsoft Graph` → `User.Read` (delegated), `Dynamics CRM` → `user_impersonation` (delegated). Both must have admin consent granted.
 
 ## Login page
@@ -258,9 +258,11 @@ The `public/favicon.svg` is the same TyroLogo paths, exported with hardcoded sky
 
 `.github/workflows/deploy.yml` triggers on push to `main` and pushes the Vite build to GitHub Pages (Source: GitHub Actions in repo settings). Required:
 
-- `vite.config.js` sets `base: command === "build" ? "/tyro/" : "/"` so assets resolve under `/tyro/` on Pages
-- `index.html` copied to `404.html` in the workflow for SPA fallback (BrowserRouter routes other than `/` need this so a direct hit on `/tyro/dashboard` doesn't 404)
-- Live URL: `https://ttech-ai.github.io/tyro/`
+- `vite.config.js` sets `base: "/"` (root-relative) — the custom domain `tyro.ttech.business` serves the SPA from its root, so no subpath prefix is needed for asset URLs
+- `public/CNAME` contains `tyro.ttech.business` — GitHub Pages reads this file from the deployed artifact and binds the deployment to the custom domain. **Do not delete or rename it**; if it goes missing, Pages reverts to `ttech-ai.github.io/tyro/` and the redirect URIs break
+- `index.html` copied to `404.html` in the workflow for SPA fallback (BrowserRouter routes other than `/` need this so a direct hit on `/dashboard` doesn't 404)
+- Live URL: `https://tyro.ttech.business/` (DNS CNAME maintained by Tiryaki IT)
+- Legacy URL `https://ttech-ai.github.io/tyro/` is still in the Azure AD redirect-URI allow-list as a fallback during migration; once everything is confirmed working on the custom domain it can be removed
 
 When adding new asset paths that aren't bundled by Vite (rare), reference them as `import.meta.env.BASE_URL + "..."` not absolute `/`. Remote: `https://github.com/ttech-AI/tyro.git`. The `ttech-AI` org enforces SAML SSO — pushing from a fresh clone requires `gh auth login` then SSO authorize for the org, or a PAT with SSO-authorized.
 

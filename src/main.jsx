@@ -12,7 +12,9 @@ import { PaletteProvider } from "@/providers/PaletteProvider"
 import { ConfigProvider } from "@/providers/ConfigProvider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-// BASE_URL is "/" in dev, "/tyro/" on GitHub Pages — strip trailing slash for router basename
+// BASE_URL is "/" everywhere now that the SPA is served from the custom
+// domain tyro.ttech.business root (the CNAME file in public/ binds Pages to
+// the custom domain). Kept as-is via env in case base ever changes again.
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/"
 
 // MSAL runs silent token renewal in a hidden iframe pointed at the redirect URI
