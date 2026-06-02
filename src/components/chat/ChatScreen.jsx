@@ -371,7 +371,6 @@ export function ChatScreen({ onReset, initialAgent }) {
       const res = await streamReply(generator, gen)
       if (res.aborted) return
       setOrbState("speaking")
-      if (res.fullText) speak(res.fullText, { lang: locale === "tr" ? "tr-TR" : "en-US", rate: 0.95 })
       setTimeout(() => setOrbState("idle"), 2400)
     } catch (err) {
       console.error("Suggested action error:", err)
@@ -425,7 +424,6 @@ export function ChatScreen({ onReset, initialAgent }) {
       const res = await streamReply(sendMessage(client, text), gen)
       if (res.aborted) return
       setOrbState("speaking")
-      if (res.fullText) speak(res.fullText, { lang: locale === "tr" ? "tr-TR" : "en-US", rate: 0.95 })
       setTimeout(() => setOrbState("idle"), 2400)
     } catch (err) {
       if (abortGenRef.current !== gen) return
@@ -448,7 +446,6 @@ export function ChatScreen({ onReset, initialAgent }) {
       const res = await streamReply(sendAction(client, actionData), gen)
       if (res.aborted) return
       setOrbState("speaking")
-      if (res.fullText) speak(res.fullText, { lang: locale === "tr" ? "tr-TR" : "en-US", rate: 0.95 })
       setTimeout(() => setOrbState("idle"), 2400)
     } catch (err) {
       console.error("Card action error:", err)
@@ -470,7 +467,15 @@ export function ChatScreen({ onReset, initialAgent }) {
     onReset?.()
   }
 
-  const isEmpty = messages.length === 0
+  // "Boş" = gösterilecek GERÇEK içerik yok. init effect'i ağ beklemesi
+  // başlarken içeriği boş bir placeholder assistant balonu ekliyor; bunu
+  // "dolu" saymak orb karşılama ekranını anında tam chat layout'una atlatıp
+  // boş bir "yazıyor" balonu flash'liyordu. İçeriksiz balonları yok sayarak
+  // greeting (metin/kart/suggested) GERÇEKTEN gelene kadar orb ekranında
+  // kalıyoruz — orb'un "thinking" animasyonu zaten yükleniyor göstergesi.
+  const hasRenderableContent = (m) =>
+    Boolean(m.content) || m.attachments?.length > 0 || m.suggestedActions?.length > 0
+  const isEmpty = !messages.some(hasRenderableContent)
 
   if (isEmpty) {
     return (

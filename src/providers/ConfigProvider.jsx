@@ -99,8 +99,37 @@ export function ConfigProvider({ children }) {
       .then((data) => {
         if (cancelled) return
         // Merge rather than replace — preserve cached logos and local-only rows.
-        setState((prev) => mergeServerData(prev, data))
+        // Merge sırasında, ikonu HENÜZ olmayan (cache'te logosu bulunmayan)
+        // agent'ların schemaName'lerini topla — yalnızca onlar için ikon çekeriz.
+        let needIcons = []
+        setState((prev) => {
+          const merged = mergeServerData(prev, data)
+          needIcons = merged.agents
+            .filter((a) => a.agentId && a.agentId !== "agent-id" && !a.logo)
+            .map((a) => a.agentId)
+          return merged
+        })
         setStatus({ loading: false, error: null, source: "dataverse" })
+
+        // Best-effort: Copilot Studio agent'larının gerçek ikonunu `bot`
+        // tablosundan çekip logo olarak iliştir. Yetki yoksa sessizce atlanır
+        // (fetchBotIcons {} döner) → agent mevcut hugeicon'unu korur. Admin'in
+        // elle yüklediği özel logoyu (!a.logo) ezmeyiz. İkonu cache'lenmiş
+        // agent'lar needIcons'ta olmadığı için her açılışta yeniden sorgulanmaz.
+        if (!needIcons.length) return
+        dv.fetchBotIcons(needIcons)
+          .then((icons) => {
+            if (cancelled || !Object.keys(icons).length) return
+            setState((prev) => ({
+              ...prev,
+              agents: prev.agents.map((a) =>
+                a.agentId && icons[a.agentId] && !a.logo
+                  ? { ...a, logo: icons[a.agentId] }
+                  : a,
+              ),
+            }))
+          })
+          .catch((err) => console.warn("[Dataverse] agent ikon zenginleştirme hatası:", err.message))
       })
       .catch((err) => {
         if (cancelled) return

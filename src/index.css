@@ -1025,10 +1025,60 @@ html {
   opacity: 0.5;
   cursor: not-allowed;
 }
+/* Fluent SVG ikonları sabit koyu (#212121) dolgulu gelir; renkli (positive/
+   destructive) butonda ve dark modda görünmez kalmasın diye beyaza çevir.
+   Açık moddaki nötr butonda koyu ikon zaten okunur, dokunma. */
+.ac-host .ac-pushButton.style-positive img,
+.ac-host .ac-pushButton.style-destructive img,
+.dark .ac-host .ac-pushButton img {
+  filter: brightness(0) invert(1);
+}
 /* Action row spacing */
 .ac-host .ac-actionSet {
   gap: 0.5rem;
   margin-top: 0.5rem;
+}
+
+/* ── Mobil responsive ───────────────────────────────────────────────
+   Resmi renderer ColumnSet/Column/Image'ı sabit genişlikli inline
+   stillerle basıyor. Flex çocuklarının varsayılan min-width:auto'su
+   içeriğin altına küçülmesini engellediğinden dar ekranda yatay taşma
+   olur. Aşağısı kartı balon genişliğine sığdırır. */
+.ac-host,
+.ac-host .ac-adaptiveCard {
+  max-width: 100%;
+  min-width: 0 !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+/* Görseller asla balon genişliğini aşmaz */
+.ac-host img {
+  max-width: 100% !important;
+  height: auto !important;
+}
+/* Flex kapsayıcılar + çocukları içeriğin altına küçülebilsin (min-width:auto
+   kilidini açar — taşmanın asıl sebebi budur). */
+.ac-host .ac-columnSet,
+.ac-host .ac-container {
+  min-width: 0;
+  max-width: 100%;
+}
+.ac-host .ac-column {
+  min-width: 0 !important;
+}
+/* Aksiyon butonları sığmazsa alt satıra dök */
+.ac-host .ac-actionSet {
+  flex-wrap: wrap;
+}
+/* Dar ekranda çok-sütunlu yerleşimleri dikey istifle (mobil standardı) */
+@media (max-width: 640px) {
+  .ac-host .ac-columnSet {
+    flex-wrap: wrap !important;
+  }
+  .ac-host .ac-columnSet > .ac-column {
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+  }
 }
 
 /* ── Chat "yazıyor" üç-nokta göstergesi ─────────────────────────── */

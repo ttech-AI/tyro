@@ -4,7 +4,9 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Copy01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import { cn } from "@/lib/utils"
+import { normalizeBotMarkdown } from "@/lib/markdown"
 import { getDateTimeFormat } from "@/lib/intl-cache"
 import { useLocale } from "@/hooks/useLocale"
 import { PastelOrb } from "@/components/brand/PastelOrb"
@@ -131,9 +133,13 @@ function ChatMessageInner({ message, onCardAction, onSuggestedAction }) {
                 "prose-strong:font-semibold prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5",
                 "prose-hr:my-3 prose-blockquote:my-2",
                 "prose-a:text-brand-via prose-a:no-underline hover:prose-a:underline",
+                // GFM tabloları: yatay kaydırma + ince kenarlık + başlık vurgusu.
+                "prose-table:my-2 prose-table:block prose-table:w-full prose-table:overflow-x-auto",
+                "prose-th:border prose-th:border-border prose-th:bg-muted/60 prose-th:px-2 prose-th:py-1 prose-th:text-left prose-th:font-semibold",
+                "prose-td:border prose-td:border-border prose-td:px-2 prose-td:py-1 prose-td:align-top",
               )}
             >
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeBotMarkdown(message.content)}</ReactMarkdown>
             </div>
           )}
           {message.attachments?.map((att, i) =>

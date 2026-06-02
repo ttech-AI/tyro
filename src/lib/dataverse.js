@@ -147,6 +147,150 @@ export async function fetchAllItems() {
   }
 }
 
+// Copilot Studio agent'larının gerçek ikonu konuşma SDK'sında YOKTUR; agent'lar
+// Dataverse'te `bot` tablosunda (entity set: bots) durur ve ikon orada bir image
+// kolonunda saklanır. ÖNEMLİ: bu bot'lar app'in launcher Dataverse'inden
+// (tyro.crm4) FARKLI bir ortamda olabilir. Bu yüzden Global Discovery ile
+// kullanıcının eriştiği tüm ortamları bulup her birinde schemaName'leri arıyoruz.
+const DISCO_URL = "https://globaldisco.crm.dynamics.com"
+
+// Verilen Dataverse org URL'i için kaynağa özel (audience = o org) bir token al.
+// "Dynamics CRM user_impersonation" delegated izni tüm org'lar için geçerlidir;
+// scope'u org URL'ine göre isteyince token o org'a göre düzenlenir.
+async function getTokenForResource(resourceUrl) {
+  const account = msalInstance.getActiveAccount()
+  if (!account) throw new Error("No active MSAL account")
+  const result = await msalInstance.acquireTokenSilent({
+    scopes: [`${String(resourceUrl).replace(/\/$/, "")}/user_impersonation`],
+    account,
+  })
+  return result.accessToken
+}
+
+// Keyfi bir org URL'ine karşı GET (cross-env).
+async function dvGet(baseUrl, path) {
+  const token = await getTokenForResource(baseUrl)
+  const res = await fetch(`${baseUrl}/api/data/v9.2${path}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      "OData-MaxVersion": "4.0",
+      "OData-Version": "4.0",
+    },
+  })
+  if (!res.ok) throw new Error(`${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`)
+  return res.json()
+}
+
+// Global Discovery: kullanıcının eriştiği tüm Dataverse ortamlarının API URL'leri.
+async function discoverOrgUrls() {
+  const token = await getTokenForResource(DISCO_URL)
+  const res = await fetch(`${DISCO_URL}/api/discovery/v2.0/Instances`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+  })
+  if (!res.ok) throw new Error(`discovery ${res.status}`)
+  const data = await res.json()
+  return [...new Set((data.value || []).map((i) => i.ApiUrl).filter(Boolean))]
+}
+
+// Tek bir org'da schemaName'leri arayıp ikon thumbnail'lerini döndürür.
+async function fetchBotIconsFromOrg(baseUrl, names) {
+  const filter = names.map((s) => `schemaname eq '${String(s).replace(/'/g, "''")}'`).join(" or ")
+  const data = await dvGet(baseUrl, `/bots?$select=botid,schemaname,name&$filter=${encodeURIComponent(filter)}`)
+  const bots = data.value || []
+  if (!bots.length) return {}
+
+  // İkon kolonunu keşfet: `bot` tablosunda image-tipi kolon yok; Copilot Studio
+  // ikonu `iconbase64` (Memo) gibi base64 metin kolonunda durur. Adında
+  // icon/image/logo/avatar/picture geçen kolonları aday alıyoruz (kolon adını
+  // sabitlemeyip ortamlar arası farklara dayanıklı kalmak için).
+  let cols = []
+  try {
+    const md = await dvGet(
+      baseUrl,
+      `/EntityDefinitions(LogicalName='bot')/Attributes?$select=LogicalName`,
+    )
+    cols = (md.value || [])
+      .map((a) => a.LogicalName)
+      .filter((n) => /icon|image|logo|avatar|picture/i.test(n))
+  } catch {
+    /* metadata okunamadı */
+  }
+  if (!cols.length) return {}
+
+  const map = {}
+  await Promise.all(
+    bots.map(async (bot) => {
+      if (!bot.schemaname) return
+      try {
+        const row = await dvGet(baseUrl, `/bots(${bot.botid})?$select=${cols.join(",")}`)
+        const raw = cols.map((c) => row[c]).find((v) => typeof v === "string" && v.length > 0)
+        const uri = base64ToDataUri(raw)
+        if (uri) map[bot.schemaname] = uri
+      } catch {
+        /* tek bot ikonu çekilemedi — atla */
+      }
+    }),
+  )
+  return map
+}
+
+// Ham base64'ü (veya hazır data-URI'yi) bir <img> kaynağına çevirir. Mime'ı
+// base64 imza ön-ekinden tespit eder ki yanlış tip yüzünden kırık görünmesin.
+function base64ToDataUri(raw) {
+  if (typeof raw !== "string" || !raw) return null
+  if (raw.startsWith("data:")) return raw
+  let mime = "image/png"
+  if (raw.startsWith("/9j/")) mime = "image/jpeg"
+  else if (raw.startsWith("R0lGOD")) mime = "image/gif"
+  else if (raw.startsWith("UklGR")) mime = "image/webp"
+  else if (raw.startsWith("PHN2Zy") || raw.startsWith("PD94bWw") || raw.startsWith("PHN2ZyA")) mime = "image/svg+xml"
+  return `data:${mime};base64,${raw}`
+}
+
+// Verilen schemaName'ler (agent.agentId) için { schemaName → dataURI } haritası.
+// Önce app'in kendi ortamı, sonra (opsiyonel) VITE_COPILOT_DATAVERSE_URL override,
+// sonra Global Discovery ile bulunan tüm ortamlar denenir; ilk eşleşen kazanır.
+// Tamamen best-effort: hiçbir ortamda bulunamaz/erişilemezse {} döner.
+export async function fetchBotIcons(schemaNames) {
+  const names = [...new Set((schemaNames || []).filter((s) => s && s !== "agent-id"))]
+  if (!names.length) return {}
+
+  const candidates = [DATAVERSE_URL]
+  const override = import.meta.env.VITE_COPILOT_DATAVERSE_URL
+  if (override) candidates.push(override)
+  try {
+    candidates.push(...(await discoverOrgUrls()))
+  } catch (err) {
+    console.warn("[Dataverse] ortam keşfi (global discovery) başarısız:", err.message)
+  }
+
+  // Tüm ortamlarda ara, sonuçları birleştir: agent'lar farklı ortamlarda olabilir.
+  // Her ortamda yalnızca HÂLÂ eksik olan schemaName'leri sorgula; hepsi bulununca dur.
+  const found = {}
+  const seen = new Set()
+  for (const raw of candidates) {
+    const baseUrl = String(raw || "").replace(/\/$/, "")
+    if (!baseUrl || seen.has(baseUrl)) continue
+    seen.add(baseUrl)
+    const remaining = names.filter((n) => !found[n])
+    if (!remaining.length) break
+    try {
+      Object.assign(found, await fetchBotIconsFromOrg(baseUrl, remaining))
+    } catch (err) {
+      console.warn(`[Dataverse] ${baseUrl} sorgulanamadı:`, err.message)
+    }
+  }
+  const missing = names.filter((n) => !found[n])
+  if (missing.length) {
+    console.info(
+      "[Dataverse] ikonu bulunamayan agent'lar (agentId hiçbir bot.schemaname ile eşleşmiyor):",
+      missing,
+    )
+  }
+  return found
+}
+
 export async function createItem(collection, item) {
   const type = COLLECTION_TO_TYPE[collection]
   const row = collection === "agents" ? agentToRow(item) : appToRow(item, type)
