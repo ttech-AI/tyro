@@ -23,32 +23,6 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/pwa-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <script>
-      // iOS standalone PWA first-paint viewport fix. On a freshly-launched
-      // home-screen PWA, WebKit miscomputes `100dvh` on the first paint (the
-      // full-screen + safe-area geometry settles a beat late under
-      // black-translucent + viewport-fit=cover), leaving a gap at the bottom
-      // until the first manual scroll/resize forces a reflow. We mirror the
-      // real height into `--app-height` and re-measure on every viewport event
-      // + after load, so the layout (h-[var(--app-height,100dvh)]) is always
-      // exactly the visible height — no gap, no manual scroll needed.
-      // innerHeight (not visualViewport.height) is intentional: it stays the
-      // full screen when the keyboard opens, matching the prior dvh behavior.
-      (function () {
-        function setAppHeight() {
-          document.documentElement.style.setProperty("--app-height", window.innerHeight + "px");
-        }
-        setAppHeight();
-        window.addEventListener("resize", setAppHeight);
-        window.addEventListener("orientationchange", setAppHeight);
-        window.addEventListener("pageshow", setAppHeight);
-        if (window.visualViewport) window.visualViewport.addEventListener("resize", setAppHeight);
-        window.addEventListener("load", function () {
-          requestAnimationFrame(setAppHeight);
-          setTimeout(setAppHeight, 300);
-        });
-      })();
-    </script>
     <meta name="description" content="TYRO AI - Tiryaki Agro / TTECH'in kurumsal AI platformu. Agentlar, AI ürünleri ve iş uygulamalarına tek bir yerden erişim." />
     <meta name="theme-color" content="#dd2a7b" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0a1628" media="(prefers-color-scheme: dark)" />

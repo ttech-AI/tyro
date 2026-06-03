@@ -30,6 +30,21 @@ hit must be replaced with `h-[100dvh]` (keyboard-aware) or
 `min-h-[100svh]` (must-fit splash). Reproduce on iOS Safari with URL bar
 visible AND keyboard open — the layout should not clip.
 
+**Standalone-PWA exception — `pwa:h-screen`.** The full-height *app shell*
+(`DashboardLayout`, `LoginPage`) is `h-[100dvh] pwa:h-screen` and `body` gets
+`min-height:100vh` under `@media (display-mode: standalone)`. Reason: on a
+freshly-launched home-screen PWA, iOS miscomputes the DYNAMIC viewport (`dvh`,
+and equivalently `window.innerHeight`) on the FIRST paint — the shell renders
+shorter than the screen, leaving a bottom gap that only fills after a manual
+scroll forces a reflow. The static LARGEST viewport (`vh`) equals the full
+screen from frame one, and in standalone there's no URL bar for `dvh` to track,
+so the original `vh` ban doesn't apply. Keep `100dvh` as the browser-tab base
+and override with `pwa:` (the `@custom-variant pwa (display-mode: standalone)`
+in `index.css`) — do NOT replace dvh with vh globally. Verified against the
+tyrostrategy PWA, whose shell is `h-screen`/`100vh`. A JS `--app-height`
+(innerHeight) approach was tried and did NOT fix it — innerHeight rides the same
+buggy dynamic viewport.
+
 ---
 
 ## 2. Every interactive element is ≥ 44 × 44 CSS pixels on coarse pointers

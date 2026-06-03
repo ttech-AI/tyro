@@ -313,13 +313,13 @@ export function LoginPage() {
     <div
       onMouseMove={triggerListening}
       className={cn(
-        // --app-height (JS-measured, set in index.html) tracks the live
-        // viewport. It's used over raw 100dvh because iOS miscomputes dvh on a
-        // standalone PWA's first paint, leaving a bottom gap until the first
-        // scroll; 100dvh is the pre-script fallback. 100svh was the original
+        // Browser tabs use 100dvh (tracks the URL bar). pwa:h-screen overrides
+        // to 100vh in installed standalone mode, where iOS miscomputes dvh on
+        // the first paint and leaves a bottom gap until the first scroll — vh
+        // is the stable full-screen height there. 100svh was the original
         // cause of the bottom white strip in the browser (sized to the
         // SMALLEST viewport even with the URL bar collapsed).
-        "relative flex h-[var(--app-height,100dvh)] w-full flex-col overflow-hidden",
+        "relative flex h-[100dvh] pwa:h-screen w-full flex-col overflow-hidden",
         isDark ? "bg-[#0c0c0c] text-[#D7E2EA]" : "bg-[#fafafa] text-[#1a1a1a]",
       )}
       style={{

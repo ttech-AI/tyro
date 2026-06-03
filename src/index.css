@@ -635,11 +635,23 @@
        rubber-band revealing white background. Per-surface scrollers use
        Tailwind's `overscroll-contain` for the same effect. */
     overscroll-behavior-y: none;
-    /* Fill the full viewport in PWA standalone — otherwise the safe-area
-       gutters can paint white when the page content is dark. --app-height is
-       the JS-measured real height (set in index.html) that fixes iOS's
-       first-paint dvh miscalculation; 100dvh is the pre-script fallback. */
-    min-height: var(--app-height, 100dvh);
+    /* Fill the full viewport — otherwise the safe-area gutters can paint
+       white when the page content is dark. Browser tabs use 100dvh (tracks
+       the URL bar); the standalone override below switches to 100vh because
+       iOS miscomputes the DYNAMIC viewport (dvh) on a freshly-launched PWA's
+       first paint, leaving a bottom gap until the first scroll — whereas the
+       static LARGEST viewport (vh) equals the full screen from the first
+       frame. (Proven by the tyrostrategy PWA, which uses h-screen/100vh.) */
+    min-height: 100dvh;
+  }
+  /* PWA standalone: there's no URL bar for dvh to track, and dvh's first-paint
+     miscalculation is exactly what caused the bottom gap. 100vh is the stable
+     full-screen height here. Pairs with the `h-[100dvh] pwa:h-screen` shells
+     in DashboardLayout / LoginPage. */
+  @media (display-mode: standalone) {
+    body {
+      min-height: 100vh;
+    }
   }
   button:not(:disabled), [role="button"]:not(:disabled) {
     cursor: pointer;
