@@ -542,16 +542,16 @@ export function ChatScreen({ onReset, initialAgent }) {
           the agent's description by default, swapping in "Yazıyor…" when
           the orb is in thinking mode so the user gets a clear in-progress
           signal. */}
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 pb-3">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 pb-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <PastelVoiceOrb
             state={orbState}
             level={effectiveLevel}
-            size={40}
+            size={30}
             onClick={handleOrbClick}
           />
           <div className="flex min-w-0 flex-col leading-tight">
-            <span className="truncate text-sm font-medium">{activeAgent?.name}</span>
+            <span className="truncate text-sm font-medium leading-4">{activeAgent?.name}</span>
             {orbState === "thinking" ? (
               <span className="truncate text-[11px] font-medium text-brand-deep">
                 {t("chat.status.thinking")}
@@ -567,7 +567,7 @@ export function ChatScreen({ onReset, initialAgent }) {
           variant="ghost"
           size="sm"
           onClick={handleResetLocal}
-          className="h-11 w-11 shrink-0 gap-1.5 p-0 text-xs text-muted-foreground hover:text-foreground sm:h-8 sm:w-auto sm:px-3"
+          className="h-8 w-8 shrink-0 gap-1.5 p-0 text-xs text-muted-foreground hover:text-foreground sm:w-auto sm:px-3"
           aria-label={t("chat.reset")}
         >
           <HugeiconsIcon icon={Refresh01Icon} className="size-4 sm:size-3.5" />
@@ -630,7 +630,7 @@ export function ChatScreen({ onReset, initialAgent }) {
           and leave a tall bg-background band above the indicator — the
           "white gap" regression. Solid bg keeps the indicator from bleeding
           through the gradient. */}
-      <div className="shrink-0 bg-background py-2 sm:py-3">
+      <div className="shrink-0 bg-background py-2 pwa:pb-5 sm:py-3">
         <ChatComposer
           value={input}
           onChange={handleInputChange}

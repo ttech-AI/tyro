@@ -46,7 +46,7 @@ export function Header({ activeId = "dashboard", onOpenSearch, onNavigate, onNew
   const pageLabelKey = PAGE_LABEL_KEY[activeId] ?? "nav.dashboard"
 
   return (
-    <header className="group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 flex h-14 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 flex h-14 pwa:h-11 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex w-full items-center gap-3 px-4 lg:px-6">
         <PremiumSidebarTrigger />
 

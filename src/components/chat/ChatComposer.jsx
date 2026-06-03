@@ -25,6 +25,7 @@ import {
 import { AgentSelect } from "./AgentSelect"
 import { useLocale } from "@/hooks/useLocale"
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 
 function formatFileSize(bytes) {
@@ -59,6 +60,9 @@ export function ChatComposer({
   className,
 }) {
   const { t, locale } = useLocale()
+  // Mobil: composer'ı kompakt tut — tek satır başlat, büyümeyi 2 satırla
+  // sınırla (masaüstünde 6) ki kısa mobil viewport'u yemesin.
+  const isMobile = useIsMobile()
   const taRef = useRef(null)
   const fileInputRef = useRef(null)
   const [attachments, setAttachments] = useState([])
@@ -143,9 +147,9 @@ export function ChatComposer({
     const el = taRef.current
     if (!el) return
     el.style.height = "auto"
-    const max = 6 * 24 // ~6 lines of 24px line-height
+    const max = (isMobile ? 2 : 6) * 24 // ~6 lines of 24px line-height (2 on mobile)
     el.style.height = Math.min(el.scrollHeight, max) + "px"
-  }, [value])
+  }, [value, isMobile])
 
   // Focus on mount, but ONLY on hover-capable pointer devices. On mobile,
   // programmatic focus pops the soft keyboard (Android) or jumps the
@@ -357,7 +361,7 @@ export function ChatComposer({
                 : t("chat.mic.listeningPlaceholder")
               : t("chat.placeholder")
           }
-          rows={2}
+          rows={isMobile ? 1 : 2}
           inputMode="text"
           enterKeyHint="send"
           autoCapitalize="sentences"
@@ -365,7 +369,10 @@ export function ChatComposer({
           spellCheck
           aria-multiline="true"
           aria-label={t("chat.placeholder")}
-          className="relative z-[1] min-h-[56px] sm:min-h-[64px] resize-none border-0 bg-transparent dark:bg-transparent px-0 py-0 text-[16px] sm:text-base leading-7 shadow-none focus-visible:ring-0 focus-visible:border-0"
+          className={cn(
+            "relative z-[1] resize-none border-0 bg-transparent dark:bg-transparent px-0 py-0 text-[16px] sm:text-base leading-7 shadow-none focus-visible:ring-0 focus-visible:border-0",
+            isMobile ? "min-h-[28px]" : "min-h-[56px] sm:min-h-[64px]",
+          )}
         />
         {speech.isListening && speech.interim && (
           <div

@@ -8,6 +8,9 @@
 @import "@fontsource-variable/jetbrains-mono";
 
 @custom-variant dark (&:is(.dark *));
+/* Installed-PWA (standalone) variant — mirrors the JS readStandalone() check.
+   Use `pwa:` to apply styles only when launched from the home screen. */
+@custom-variant pwa (@media (display-mode: standalone));
 
 @theme inline {
     --font-heading: var(--font-sans);
