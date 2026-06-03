@@ -636,8 +636,10 @@
        Tailwind's `overscroll-contain` for the same effect. */
     overscroll-behavior-y: none;
     /* Fill the full viewport in PWA standalone — otherwise the safe-area
-       gutters can paint white when the page content is dark. */
-    min-height: 100dvh;
+       gutters can paint white when the page content is dark. --app-height is
+       the JS-measured real height (set in index.html) that fixes iOS's
+       first-paint dvh miscalculation; 100dvh is the pre-script fallback. */
+    min-height: var(--app-height, 100dvh);
   }
   button:not(:disabled), [role="button"]:not(:disabled) {
     cursor: pointer;

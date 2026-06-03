@@ -14,13 +14,16 @@ export function DashboardLayout({ children, activeId, onActiveIdChange, onNewCha
 
   return (
     <SidebarProvider
-      // h-[100dvh] + overflow-hidden caps the whole dashboard at the
-      // viewport — without an UPPER bound at the top of the flex chain,
-      // every `min-h-0` further down is toothless because the parent has
-      // no defined height to constrain children against. The shadcn
-      // primitive only sets `min-h-svh` (LOWER bound), so chat thread
+      // h-[var(--app-height,100dvh)] + overflow-hidden caps the whole
+      // dashboard at the viewport — without an UPPER bound at the top of the
+      // flex chain, every `min-h-0` further down is toothless because the
+      // parent has no defined height to constrain children against. The
+      // shadcn primitive only sets `min-h-svh` (LOWER bound), so chat thread
       // content was growing the whole page and scrolling the body.
-      className="bg-sidebar h-[100dvh] overflow-hidden"
+      // --app-height (JS-measured, set in index.html) is used over raw 100dvh
+      // because iOS miscomputes dvh on a standalone PWA's first paint, leaving
+      // a bottom gap until the first scroll; 100dvh is the pre-script fallback.
+      className="bg-sidebar h-[var(--app-height,100dvh)] overflow-hidden"
       style={{
         "--sidebar-width": "15rem",
         "--sidebar-width-icon": "3rem",

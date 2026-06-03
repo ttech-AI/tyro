@@ -313,12 +313,13 @@ export function LoginPage() {
     <div
       onMouseMove={triggerListening}
       className={cn(
-        // 100dvh tracks the live viewport (PWA standalone = full screen,
-        // browser tab = current chrome state). 100svh was the cause of
-        // the bottom white strip in the browser: the page sized to the
-        // SMALLEST viewport (URL bar visible) even when the URL bar was
-        // collapsed, leaving an empty band beneath the footer.
-        "relative flex h-[100dvh] w-full flex-col overflow-hidden",
+        // --app-height (JS-measured, set in index.html) tracks the live
+        // viewport. It's used over raw 100dvh because iOS miscomputes dvh on a
+        // standalone PWA's first paint, leaving a bottom gap until the first
+        // scroll; 100dvh is the pre-script fallback. 100svh was the original
+        // cause of the bottom white strip in the browser (sized to the
+        // SMALLEST viewport even with the URL bar collapsed).
+        "relative flex h-[var(--app-height,100dvh)] w-full flex-col overflow-hidden",
         isDark ? "bg-[#0c0c0c] text-[#D7E2EA]" : "bg-[#fafafa] text-[#1a1a1a]",
       )}
       style={{

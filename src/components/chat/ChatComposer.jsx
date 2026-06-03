@@ -60,8 +60,8 @@ export function ChatComposer({
   className,
 }) {
   const { t, locale } = useLocale()
-  // Mobil: composer'ı kompakt tut — tek satır başlat, büyümeyi 2 satırla
-  // sınırla (masaüstünde 6) ki kısa mobil viewport'u yemesin.
+  // Composer her yerde tek satır başlar; büyüme mobilde 2, masaüstünde 6
+  // satırla sınırlı (geniş ekranda daha uzun mesaj görünür kalsın).
   const isMobile = useIsMobile()
   const taRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -344,7 +344,7 @@ export function ChatComposer({
           interim text to exactly where the caret sits, so words "solidify"
           in place on isFinal. Writing interim into the textarea directly
           would reset selection on every event and break Android IME. */}
-      <div className="relative px-4 pt-4 sm:px-6 sm:pt-5">
+      <div className="relative px-4 pt-3 sm:px-6 sm:pt-4">
         <Textarea
           ref={taRef}
           value={value}
@@ -361,7 +361,7 @@ export function ChatComposer({
                 : t("chat.mic.listeningPlaceholder")
               : t("chat.placeholder")
           }
-          rows={isMobile ? 1 : 2}
+          rows={1}
           inputMode="text"
           enterKeyHint="send"
           autoCapitalize="sentences"
@@ -369,15 +369,12 @@ export function ChatComposer({
           spellCheck
           aria-multiline="true"
           aria-label={t("chat.placeholder")}
-          className={cn(
-            "relative z-[1] resize-none border-0 bg-transparent dark:bg-transparent px-0 py-0 text-[16px] sm:text-base leading-7 shadow-none focus-visible:ring-0 focus-visible:border-0",
-            isMobile ? "min-h-[28px]" : "min-h-[56px] sm:min-h-[64px]",
-          )}
+          className="relative z-[1] min-h-[24px] resize-none border-0 bg-transparent dark:bg-transparent px-0 py-0 text-[16px] sm:text-base leading-6 shadow-none focus-visible:ring-0 focus-visible:border-0"
         />
         {speech.isListening && speech.interim && (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-x-4 top-4 select-none whitespace-pre-wrap break-words text-[16px] leading-7 text-foreground/55 sm:inset-x-6 sm:top-5 sm:text-base"
+            className="pointer-events-none absolute inset-x-4 top-3 select-none whitespace-pre-wrap break-words text-[16px] leading-6 text-foreground/55 sm:inset-x-6 sm:top-4 sm:text-base"
           >
             <span className="invisible">
               {value ? value + (/\s$/.test(value) ? "" : " ") : ""}
@@ -388,7 +385,7 @@ export function ChatComposer({
       </div>
 
       {/* Bottom row */}
-      <div className="flex items-center justify-between gap-2 px-3 py-2.5 sm:px-5 sm:py-3">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-5 sm:py-2.5">
         <div className="flex items-center gap-1 sm:gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
