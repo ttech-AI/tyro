@@ -32,18 +32,20 @@ function TypingIndicator() {
 
   return (
     <span aria-live="polite" aria-label={phrases[step]} className="inline-flex items-center gap-2 py-0.5">
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.span
-          key={step}
-          initial={{ opacity: 0, y: 6, filter: "blur(3px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          exit={{ opacity: 0, y: -6, filter: "blur(3px)" }}
-          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-          className="chat-shimmer-text text-sm font-medium tracking-tight"
-        >
-          {phrases[step]}
-        </motion.span>
-      </AnimatePresence>
+      <span className="grid">
+        <AnimatePresence initial={false}>
+          <motion.span
+            key={step}
+            initial={{ opacity: 0, y: 6, filter: "blur(3px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            exit={{ opacity: 0, y: -6, filter: "blur(3px)" }}
+            transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+            className="chat-shimmer-text text-sm font-medium tracking-tight [grid-area:1/1] whitespace-nowrap"
+          >
+            {phrases[step]}
+          </motion.span>
+        </AnimatePresence>
+      </span>
       <span aria-hidden className="inline-flex items-center gap-[3px]">
         {[0, 1, 2].map((i) => (
           <span
