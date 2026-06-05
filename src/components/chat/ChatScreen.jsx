@@ -13,7 +13,7 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { useMe } from "@/hooks/useMe"
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis"
 import { loadMessages, saveMessages, clearMessages } from "@/lib/chatPersistence"
-import { startConversation, sendMessage, sendAction, resolveSuggestedAction } from "@/lib/copilot"
+import { startConversation, sendMessage, sendAction, resolveSuggestedAction, filesToAttachments } from "@/lib/copilot"
 import { cn } from "@/lib/utils"
 
 function extractSubmitActions(items) {
@@ -380,11 +380,19 @@ export function ChatScreen({ onReset, initialAgent }) {
     }
   }
 
-  async function handleSend() {
+  async function handleSend(picked = []) {
     const text = input.trim()
-    if (!text) return
+    if (!text && picked.length === 0) return
 
-    const userMsg = { id: makeId(), role: "user", content: text, time: new Date() }
+    // Baloncukta YALNIZCA görüntüleme metası tutulur (ad/boyut/tip). base64
+    // data-URI'leri buraya koymuyoruz: mesajlar chatPersistence ile
+    // sessionStorage'a mirror'lanıyor ve büyük dosyalar quota'yı patlatır.
+    const displayAttachments = picked.map((a) => ({
+      name: a.name,
+      size: a.size,
+      contentType: a.type,
+    }))
+    const userMsg = { id: makeId(), role: "user", content: text, attachments: displayAttachments, time: new Date() }
     setIsNearBottom(true)
     setMessages((m) => [...m, userMsg])
     setInput("")
@@ -421,7 +429,11 @@ export function ChatScreen({ onReset, initialAgent }) {
       }
 
       const client = copilotClientRef.current.client
-      const res = await streamReply(sendMessage(client, text), gen)
+      // Dosyaları gönderim anında base64 data-URI attachment'larına çevir
+      // (kalıcı değil — yalnızca bu activity için). Bot tarafında
+      // System.Activity.Attachments üzerinden .Name / .Content okunur.
+      const wireAttachments = picked.length ? await filesToAttachments(picked.map((a) => a.file)) : []
+      const res = await streamReply(sendMessage(client, text, wireAttachments), gen)
       if (res.aborted) return
       setOrbState("speaking")
       setTimeout(() => setOrbState("idle"), 2400)

@@ -30,6 +30,14 @@ function activityToChunk(activity) {
   const suggested = activity?.suggestedActions?.actions || []
   const hasContent = activity?.text || activity?.attachments?.length || suggested.length
   if (!hasContent) return null
+  // DEV: botun döndürdüğü kart-DIŞI attachment'ların gerçek şekli (dosya
+  // indirme renderer'ını/auth'unu kesinleştirmek için). Prod'da çalışmaz.
+  if (import.meta.env?.DEV) {
+    const files = (activity?.attachments || []).filter(
+      (a) => a?.contentType !== "application/vnd.microsoft.card.adaptive",
+    )
+    if (files.length) console.debug("[copilot] non-card attachments:", files)
+  }
   return {
     text: activity.text || "",
     attachments: activity.attachments || [],
@@ -51,8 +59,37 @@ export async function* startConversation(schemaName) {
   yield { text: "", attachments: [], suggestedActions: [], done: true, client }
 }
 
-export async function* sendMessage(client, text) {
+// Inline attachment limiti. Dosyalar activity'ye base64 data-URI olarak GÖMÜLÜR
+// (ayrı bir DirectLine upload endpoint'i yok); base64 ham boyutu ~%33 şişirir ve
+// Copilot Studio'nun inline payload'ı ~1 MB civarında sorun çıkarmaya başlar.
+// Temkinli bir per-file tavan; gerekirse tek yerden artırılır.
+export const MAX_ATTACHMENT_BYTES = 1024 * 1024 // 1 MB
+
+// Bir File'ı Copilot/Bot Framework attachment'ına çevirir:
+// { contentType, name, contentUrl: "data:<mime>;base64,..." }. Bot tarafında
+// System.Activity.Attachments üzerinden .Name / .Content olarak okunur.
+function fileToAttachment(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(reader.error ?? new Error("read failed"))
+    reader.onload = () =>
+      resolve({
+        contentType: file.type || "application/octet-stream",
+        name: file.name,
+        contentUrl: reader.result, // data:<mime>;base64,<...>
+      })
+    reader.readAsDataURL(file)
+  })
+}
+
+// Birden çok File'ı paralel olarak wire attachment'larına çevirir.
+export function filesToAttachments(files) {
+  return Promise.all((files || []).map(fileToAttachment))
+}
+
+export async function* sendMessage(client, text, attachments = []) {
   const activity = { type: "message", text }
+  if (attachments.length) activity.attachments = attachments
   for await (const reply of client.sendActivityStreaming(activity)) {
     const chunk = activityToChunk(reply)
     if (chunk) yield chunk

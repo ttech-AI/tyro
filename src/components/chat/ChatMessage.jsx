@@ -1,7 +1,7 @@
 import { memo, useEffect, useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Copy01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
+import { Copy01Icon, Tick01Icon, File01Icon, Download01Icon } from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -15,6 +15,50 @@ import { useConfig } from "@/hooks/useConfig"
 import { AdaptiveCardView } from "./AdaptiveCardView"
 
 const TIME_FORMAT_OPTIONS = { hour: "2-digit", minute: "2-digit" }
+
+// Kullanıcının gönderdiği dosya chip'inde gösterilen boyut etiketi.
+function formatFileSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+}
+
+// Botun döndürdüğü dosya attachment'ından indirilebilir bir URL çıkarır.
+// Adaptive Card DEĞİL; data: URI ya da http(s) bağlantı olabilir; bazı bot
+// kartlarında dosya content içinde (downloadUrl/url) gelir.
+function attachmentDownloadUrl(att) {
+  if (att?.contentUrl) return att.contentUrl
+  const c = att?.content
+  if (c && typeof c === "object") return c.downloadUrl || c.url || null
+  return null
+}
+
+// Botun gönderdiği bir dosyayı indirilebilir chip olarak gösterir.
+function FileAttachment({ att }) {
+  const { t } = useLocale()
+  const url = attachmentDownloadUrl(att)
+  if (!url) return null
+  const name = att.name || att.content?.name || t("chat.attach.file")
+  return (
+    <a
+      href={url}
+      download={name}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group inline-flex max-w-full items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm transition hover:border-brand-via/50 hover:bg-brand-soft/20"
+    >
+      <HugeiconsIcon icon={File01Icon} className="size-4 shrink-0 text-brand-deep" strokeWidth={1.6} />
+      <span className="max-w-[200px] truncate font-medium" title={name}>
+        {name}
+      </span>
+      <HugeiconsIcon
+        icon={Download01Icon}
+        className="size-4 shrink-0 text-muted-foreground transition group-hover:text-brand-deep"
+        strokeWidth={1.8}
+      />
+    </a>
+  )
+}
 
 // "Yazıyor" göstergesi — premium: brand-gradient shimmer ile parlayan, yumuşak
 // crossfade ile ilerleyen durum kelimesi + ince nokta dalgası. Kelimeler doğal
@@ -51,7 +95,7 @@ function TypingIndicator() {
           <span
             key={i}
             className="chat-typing-dot size-1 rounded-full bg-brand-via/70"
-            style={{ animationDelay: `${i * 0.18}s` }}
+            style={{ animationDelay: `${i * 0.4}s` }}
           />
         ))}
       </span>
@@ -120,11 +164,31 @@ function ChatMessageInner({ message, onCardAction, onSuggestedAction }) {
         transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
         className="flex items-start justify-end gap-2"
       >
-        <div className={cn("flex flex-col items-end", BUBBLE_MAX_WIDTH)}>
-          <div className="rounded-2xl rounded-tr-md border border-brand-via/30 bg-brand-soft/40 px-4 py-2.5 text-sm leading-relaxed text-foreground">
-            {message.content}
-          </div>
-          <span className="mt-1 text-[10px] tabular-nums text-muted-foreground/70">
+        <div className={cn("flex flex-col items-end gap-1.5", BUBBLE_MAX_WIDTH)}>
+          {message.content && (
+            <div className="rounded-2xl rounded-tr-md border border-brand-via/30 bg-brand-soft/40 px-4 py-2.5 text-sm leading-relaxed text-foreground">
+              {message.content}
+            </div>
+          )}
+          {message.attachments?.length > 0 && (
+            <div className="flex flex-wrap justify-end gap-1.5">
+              {message.attachments.map((att, i) => (
+                <div
+                  key={i}
+                  className="inline-flex max-w-full items-center gap-2 rounded-lg border border-brand-via/30 bg-card px-2 py-1 text-xs"
+                >
+                  <HugeiconsIcon icon={File01Icon} className="size-3.5 shrink-0 text-brand-deep" strokeWidth={1.6} />
+                  <span className="max-w-[160px] truncate font-medium" title={att.name}>
+                    {att.name}
+                  </span>
+                  {att.size != null && (
+                    <span className="tabular-nums text-muted-foreground">{formatFileSize(att.size)}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <span className="text-[10px] tabular-nums text-muted-foreground/70">
             {formatTime(time, locale)}
           </span>
         </div>
@@ -175,6 +239,8 @@ function ChatMessageInner({ message, onCardAction, onSuggestedAction }) {
               <div key={i} className="rounded-2xl rounded-tl-md border border-border bg-card px-4 py-3">
                 <AdaptiveCardView card={att.content} onAction={onCardAction} />
               </div>
+            ) : attachmentDownloadUrl(att) ? (
+              <FileAttachment key={i} att={att} />
             ) : null,
           )}
           {!message.content && !message.attachments?.length && !message.suggestedActions?.length && (

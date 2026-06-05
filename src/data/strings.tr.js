@@ -201,6 +201,8 @@ export const strings = {
   "chat.send": "Gönder",
   "chat.attach": "Dosya ekle",
   "chat.attach.remove": "Dosyayı kaldır",
+  "chat.attach.tooLarge": "{name} çok büyük (en fazla {size}).",
+  "chat.attach.file": "Dosya",
   "chat.format.toggle": "Biçimlendirme",
   "chat.format.bold": "Kalın",
   "chat.format.italic": "İtalik",

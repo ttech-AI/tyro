@@ -27,6 +27,7 @@ import { useLocale } from "@/hooks/useLocale"
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
+import { MAX_ATTACHMENT_BYTES } from "@/lib/copilot"
 
 function formatFileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -176,7 +177,9 @@ export function ChatComposer({
     // textarea has been cleared by the parent would otherwise land in
     // the fresh empty composer.
     if (speech.isListening) speech.abort()
-    onSend?.()
+    // Seçilen dosyaları parent'a teslim et — gönderim/base64 dönüşümü orada
+    // (ChatScreen) yapılır. Tray'i hemen temizliyoruz.
+    onSend?.(attachments)
     setAttachments([])
   }
 
@@ -188,16 +191,31 @@ export function ChatComposer({
   function handleFiles(e) {
     const picked = Array.from(e.target.files || [])
     if (picked.length === 0) return
-    setAttachments((prev) => [
-      ...prev,
-      ...picked.map((file) => ({
-        id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
-        file,
-        name: file.name,
-        size: file.size,
-        type: file.type,
-      })),
-    ])
+    // Dosyalar activity'ye inline base64 olarak gömüldüğü için per-file boyut
+    // tavanı var (bkz. MAX_ATTACHMENT_BYTES). Aşan dosyayı ele ve bildir.
+    const accepted = picked.filter((file) => {
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        toast.error(
+          t("chat.attach.tooLarge")
+            .replace("{name}", file.name)
+            .replace("{size}", formatFileSize(MAX_ATTACHMENT_BYTES)),
+        )
+        return false
+      }
+      return true
+    })
+    if (accepted.length > 0) {
+      setAttachments((prev) => [
+        ...prev,
+        ...accepted.map((file) => ({
+          id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+          file,
+          name: file.name,
+          size: file.size,
+          type: file.type,
+        })),
+      ])
+    }
     e.target.value = ""
   }
 

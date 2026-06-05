@@ -1099,35 +1099,39 @@ html {
 }
 
 /* ── Chat "yazıyor" üç-nokta göstergesi ─────────────────────────── */
+/* Noktalar sırayla yansır (1 → 2 → 3). Gecikme döngünün 1/3'ü (0.4s @ 1.2s)
+   olduğu için her an yalnızca bir nokta öne çıkar ve dalga kesintisiz döner.
+   Tepe %20'de; sonra %40'tan itibaren sönük kalır. */
 @keyframes chat-typing {
-  0%, 70%, 100% { transform: translateY(0); opacity: 0.35; }
-  35% { transform: translateY(-5px); opacity: 1; }
+  0%, 40%, 100% { transform: translateY(0) scale(1); opacity: 0.25; }
+  20% { transform: translateY(-3px) scale(1.35); opacity: 1; }
 }
 .chat-typing-dot {
-  animation: chat-typing 1.1s infinite ease-in-out;
+  animation: chat-typing 1.2s infinite ease-in-out;
 }
 
-/* Premium "yazıyor" kelimesi — nötr metin üzerinde brand renkli bir ışık
-   bandının soldan sağa süzülmesi (skeleton-shimmer'ın metin sürümü). */
+/* Premium "yazıyor" kelimesi — nötr harflerin üzerinden parlak marka rengi
+   bir FLASH bandının soldan sağa süzülmesi (glint/shine efekti). Klasik
+   skeleton-shimmer tekniği: %200 boyut + tile (repeat) ile dikişsiz gri zemin,
+   ortadaki tek parlak bant döngü başına bir kez metnin üzerinden geçer. */
 .chat-shimmer-text {
   background-image: linear-gradient(
-    100deg,
+    90deg,
     var(--muted-foreground) 0%,
-    var(--muted-foreground) 38%,
+    var(--muted-foreground) 35%,
     var(--brand-via) 50%,
-    var(--muted-foreground) 62%,
+    var(--muted-foreground) 65%,
     var(--muted-foreground) 100%
   );
-  background-size: 220% 100%;
-  background-repeat: no-repeat;
+  background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: chat-shimmer 2.4s linear infinite;
+  animation: chat-shimmer 1.8s linear infinite;
 }
 @keyframes chat-shimmer {
-  0% { background-position: 150% 0; }
-  100% { background-position: -150% 0; }
+  0% { background-position: 0% 50%; }
+  100% { background-position: -200% 50%; }
 }
 
 /* ── Reduced motion ─────────────────────────────────────────────── */
@@ -1144,6 +1148,11 @@ html {
      yukarıdaki global iteration-count:1 kuralını ezer. */
   .chat-typing-dot {
     animation: chat-typing-fade 1.4s infinite ease-in-out !important;
+  }
+  /* Flash da bir ilerleme sinyali — reduced-motion altında bile renk geçişi
+     sürsün (büyük hareket yok, yalnızca renk bandı süzülür). */
+  .chat-shimmer-text {
+    animation: chat-shimmer 2.2s linear infinite !important;
   }
 }
 @keyframes chat-typing-fade {

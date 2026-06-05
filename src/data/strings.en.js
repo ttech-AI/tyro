@@ -201,6 +201,8 @@ export const strings = {
   "chat.send": "Send",
   "chat.attach": "Attach file",
   "chat.attach.remove": "Remove file",
+  "chat.attach.tooLarge": "{name} is too large (max {size}).",
+  "chat.attach.file": "File",
   "chat.format.toggle": "Formatting",
   "chat.format.bold": "Bold",
   "chat.format.italic": "Italic",
