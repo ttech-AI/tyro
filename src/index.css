@@ -1144,10 +1144,16 @@ html {
   }
   /* "Yazıyor" göstergesi bir ilerleme sinyali — donması yanıltıcı olur.
      Reduced-motion altında bile büyük hareket olmadan (sadece opaklık)
-     sürekli döner. Daha yüksek specificity + shorthand !important ile
-     yukarıdaki global iteration-count:1 kuralını ezer. */
+     sürekli döner. ÖNEMLİ: shorthand `animation` yazmıyoruz — kısayol
+     `animation-delay`'i 0'a sıfırlar ve !important ile inline per-dot
+     stagger'ı (0/0.4/0.8s) ezerdi, noktalar aynı anda yanardı. Longhand
+     ile yalnızca name/duration/iteration/timing'i ezip delay'i inline'a
+     bırakıyoruz → sıralı 1→2→3 reduced-motion'da da korunur. */
   .chat-typing-dot {
-    animation: chat-typing-fade 1.4s infinite ease-in-out !important;
+    animation-name: chat-typing-fade !important;
+    animation-duration: 1.4s !important;
+    animation-iteration-count: infinite !important;
+    animation-timing-function: ease-in-out !important;
   }
   /* Flash da bir ilerleme sinyali — reduced-motion altında bile renk geçişi
      sürsün (büyük hareket yok, yalnızca renk bandı süzülür). */
