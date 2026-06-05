@@ -75,7 +75,7 @@ function TypingIndicator() {
   }, [step, phrases.length])
 
   return (
-    <span aria-live="polite" aria-label={phrases[step]} className="inline-flex items-center gap-2 py-0.5">
+    <span aria-live="polite" aria-label={phrases[step]} className="inline-flex items-baseline gap-1 py-0.5">
       <span className="grid">
         <AnimatePresence initial={false}>
           <motion.span
@@ -90,7 +90,7 @@ function TypingIndicator() {
           </motion.span>
         </AnimatePresence>
       </span>
-      <span aria-hidden className="inline-flex items-center gap-[3px]">
+      <span aria-hidden className="inline-flex items-end gap-[3px]">
         {[0, 1, 2].map((i) => (
           <span
             key={i}
