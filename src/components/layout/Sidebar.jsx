@@ -2,6 +2,7 @@ import {
   DashboardCircleIcon,
   Analytics01Icon,
   AiChat02Icon,
+  CopilotIcon,
   Settings02Icon,
   HelpCircleIcon,
 } from "@hugeicons/core-free-icons"
@@ -26,6 +27,18 @@ import { useLocale } from "@/hooks/useLocale"
 const navMain = [
   { id: "dashboard", labelKey: "nav.dashboard", icon: DashboardCircleIcon, ready: true },
   { id: "chat", labelKey: "nav.chat", icon: AiChat02Icon, ready: true },
+  // External link: M365 Copilot lives outside TYRO. handleSelect short-circuits
+  // on isExternal so it never enters the router (no PATH_TO_ID entry, no
+  // breadcrumb update, no active highlight) — opens in a new tab instead.
+  {
+    id: "copilot",
+    labelKey: "nav.copilot",
+    tooltipKey: "nav.copilotSubtitle",
+    icon: CopilotIcon,
+    ready: true,
+    isExternal: true,
+    href: "https://m365.cloud.microsoft/chat",
+  },
   { id: "analytics", labelKey: "nav.analytics", icon: Analytics01Icon, ready: true, showConstructionToast: true },
 ]
 
@@ -74,6 +87,15 @@ export function AppSidebar({ activeId, onSelectActiveId, onNewChat, ...props }) 
   const { isMobile, setOpenMobile } = useSidebar()
 
   const handleSelect = (item) => {
+    // External items (e.g. Copilot) live outside TYRO — open in a new tab
+    // and bypass the router entirely. Intentionally we do NOT call
+    // onSelectActiveId, so the breadcrumb + left brand stripe stay on the
+    // page the user was on (you didn't navigate inside the SPA).
+    if (item.isExternal && item.href) {
+      window.open(item.href, "_blank", "noopener,noreferrer")
+      if (isMobile) setOpenMobile(false)
+      return
+    }
     if (item.ready) {
       onSelectActiveId?.(item.id)
       if (item.showConstructionToast) showComingSoon(t(item.labelKey), t)

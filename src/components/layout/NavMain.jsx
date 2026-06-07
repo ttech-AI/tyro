@@ -1,5 +1,5 @@
 import { HugeiconsIcon } from "@hugeicons/react"
-import { PlusSignCircleIcon } from "@hugeicons/core-free-icons"
+import { PlusSignCircleIcon, ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -51,7 +51,10 @@ export function NavMain({ items, activeId, onSelect, onQuickAction }) {
                   )}
                   <SidebarMenuButton
                     isActive={active}
-                    tooltip={t(item.labelKey)}
+                    // External items override the tooltip to mention "opens
+                    // in a new tab" — the collapsed-rail tooltip is the only
+                    // affordance icon-only users see.
+                    tooltip={t(item.tooltipKey ?? item.labelKey)}
                     disabled={!!item.comingSoon}
                     onClick={() => onSelect(item)}
                     className={cn(
@@ -59,7 +62,14 @@ export function NavMain({ items, activeId, onSelect, onQuickAction }) {
                     )}
                   >
                     {item.icon && <HugeiconsIcon icon={item.icon} />}
-                    <span>{t(item.labelKey)}</span>
+                    <span className="flex-1">{t(item.labelKey)}</span>
+                    {item.isExternal && (
+                      <HugeiconsIcon
+                        icon={ArrowUpRight01Icon}
+                        className="ml-auto size-3.5 shrink-0 text-muted-foreground/60 group-data-[collapsible=icon]:hidden"
+                        aria-hidden="true"
+                      />
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )

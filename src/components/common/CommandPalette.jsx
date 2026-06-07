@@ -5,6 +5,8 @@ import {
   Analytics01Icon,
   Settings02Icon,
   HelpCircleIcon,
+  CopilotIcon,
+  ArrowUpRight01Icon,
   Moon01Icon,
   Sun01Icon,
   LanguageCircleIcon,
@@ -22,15 +24,26 @@ import {
 import { useLocale } from "@/hooks/useLocale"
 import { useTheme } from "@/hooks/useTheme"
 
-// Pages mirror what the sidebar shows (navMain + navSecondary). Keep this
-// in sync with src/components/layout/Sidebar.jsx so search results don't
-// drift from the actual nav.
+// Pages mirror what the sidebar shows (navMain + navSecondary). External
+// items live in their own group below so Cmd+K still finds them but the
+// visual grouping signals they leave the SPA. Keep these in sync with
+// src/components/layout/Sidebar.jsx + HeaderSearch.jsx.
 const PAGES = [
   { id: "dashboard", path: "/dashboard", labelKey: "nav.dashboard", icon: DashboardCircleIcon },
   { id: "chat", path: "/chat", labelKey: "nav.chat", icon: AiChat02Icon },
   { id: "analytics", path: "/analytics", labelKey: "nav.analytics", icon: Analytics01Icon },
   { id: "settings", path: "/settings", labelKey: "nav.settings", icon: Settings02Icon },
   { id: "help", path: "/help", labelKey: "nav.help", icon: HelpCircleIcon },
+]
+
+const EXTERNAL = [
+  {
+    id: "copilot",
+    href: "https://m365.cloud.microsoft/chat",
+    labelKey: "nav.copilot",
+    subtitleKey: "nav.copilotSubtitle",
+    icon: CopilotIcon,
+  },
 ]
 
 export function CommandPalette({ open, onOpenChange, onNavigate, onNewChat }) {
@@ -59,6 +72,33 @@ export function CommandPalette({ open, onOpenChange, onNavigate, onNewChat }) {
             >
               <HugeiconsIcon icon={p.icon} size={16} strokeWidth={1.5} />
               <span className="font-medium">{t(p.labelKey)}</span>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+
+        <CommandSeparator />
+
+        <CommandGroup heading={t("cmd.groupExternal")}>
+          {EXTERNAL.map((p) => (
+            <CommandItem
+              key={p.id}
+              value={`${t(p.labelKey)} ${t(p.subtitleKey)}`}
+              onSelect={() => {
+                window.open(p.href, "_blank", "noopener,noreferrer")
+                close()
+              }}
+            >
+              <HugeiconsIcon icon={p.icon} size={16} strokeWidth={1.5} />
+              <span className="font-medium">{t(p.labelKey)}</span>
+              <span className="ml-2 truncate text-xs text-muted-foreground">
+                {t(p.subtitleKey)}
+              </span>
+              <HugeiconsIcon
+                icon={ArrowUpRight01Icon}
+                size={14}
+                strokeWidth={1.5}
+                className="ml-auto text-muted-foreground/70"
+              />
             </CommandItem>
           ))}
         </CommandGroup>

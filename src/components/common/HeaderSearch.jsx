@@ -7,6 +7,8 @@ import {
   Analytics01Icon,
   Settings02Icon,
   HelpCircleIcon,
+  CopilotIcon,
+  ArrowUpRight01Icon,
   Moon02Icon,
   Sun03Icon,
   LanguageSquareIcon,
@@ -30,12 +32,24 @@ import { useLocale } from "@/hooks/useLocale"
 import { useTheme } from "@/hooks/useTheme"
 
 // Keep in sync with src/components/layout/Sidebar.jsx + CommandPalette.jsx.
+// External group below mirrors the Copilot sidebar entry — same URL, same
+// new-tab behavior, same external arrow hint.
 const PAGES = [
   { id: "dashboard", path: "/dashboard", labelKey: "nav.dashboard", icon: DashboardCircleIcon },
   { id: "chat", path: "/chat", labelKey: "nav.chat", icon: AiChat02Icon },
   { id: "analytics", path: "/analytics", labelKey: "nav.analytics", icon: Analytics01Icon },
   { id: "settings", path: "/settings", labelKey: "nav.settings", icon: Settings02Icon },
   { id: "help", path: "/help", labelKey: "nav.help", icon: HelpCircleIcon },
+]
+
+const EXTERNAL = [
+  {
+    id: "copilot",
+    href: "https://m365.cloud.microsoft/chat",
+    labelKey: "nav.copilot",
+    subtitleKey: "nav.copilotSubtitle",
+    icon: CopilotIcon,
+  },
 ]
 
 export function HeaderSearch({ onNavigate, onNewChat }) {
@@ -79,6 +93,31 @@ export function HeaderSearch({ onNavigate, onNewChat }) {
                 >
                   <HugeiconsIcon icon={p.icon} />
                   <span className="font-medium">{t(p.labelKey)}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+
+            <CommandSeparator />
+
+            <CommandGroup heading={t("cmd.groupExternal")}>
+              {EXTERNAL.map((p) => (
+                <CommandItem
+                  key={p.id}
+                  value={`${t(p.labelKey)} ${t(p.subtitleKey)}`}
+                  onSelect={() => {
+                    window.open(p.href, "_blank", "noopener,noreferrer")
+                    setOpen(false)
+                  }}
+                >
+                  <HugeiconsIcon icon={p.icon} />
+                  <span className="font-medium">{t(p.labelKey)}</span>
+                  <span className="ml-2 truncate text-xs text-muted-foreground">
+                    {t(p.subtitleKey)}
+                  </span>
+                  <HugeiconsIcon
+                    icon={ArrowUpRight01Icon}
+                    className="ml-auto text-muted-foreground/70"
+                  />
                 </CommandItem>
               ))}
             </CommandGroup>
