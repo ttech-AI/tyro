@@ -45,7 +45,12 @@ export const msalConfig = {
 export const COPILOT_STUDIO_SCOPE = "https://api.powerplatform.com/CopilotStudio.Copilots.Invoke"
 
 export const loginRequest = {
-  scopes: ["User.Read", "openid", "profile", "email"],
+  // GroupMember.Read.All is here so the consent prompt at first login also
+  // covers the Graph /me/checkMemberGroups fallback in useIsInGroup. Without
+  // it, the silent-token-acquisition would throw InteractionRequired and the
+  // hook would fail-closed (= no admin tabs even for real admins). Still
+  // requires admin consent on the app registration to take effect tenant-wide.
+  scopes: ["User.Read", "GroupMember.Read.All", "openid", "profile", "email"],
   prompt: "select_account",
   extraScopesToConsent: [COPILOT_STUDIO_SCOPE],
 }
@@ -92,5 +97,15 @@ msalInstance.addEventCallback((event) => {
   }
   if (event.eventType === EventType.LOGOUT_SUCCESS) {
     msalInstance.setActiveAccount(null)
+    // Wipe in-memory group-membership cache so a different user signing
+    // into the same browser doesn't inherit the previous user's "is admin"
+    // verdict. Dynamic import avoids a cyclic module init (the hook imports
+    // ensureMsalInitialized from THIS file).
+    import("@/hooks/useIsInGroup")
+      .then((m) => m.clearGroupMembershipCache())
+      .catch(() => {
+        // best effort — if the hook isn't reachable, the cache is gone
+        // when the SPA re-mounts anyway
+      })
   }
 })

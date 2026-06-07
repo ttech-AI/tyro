@@ -28,21 +28,13 @@ import { EntityForm } from "./EntityForm"
 import { GeneralTab } from "./GeneralTab"
 import { useConfig } from "@/hooks/useConfig"
 import { useLocale } from "@/hooks/useLocale"
-import { useMe } from "@/hooks/useMe"
+import { useIsInGroup } from "@/hooks/useIsInGroup"
+import { ADMIN_GROUP_ID } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
-// Admin allow-list: only these UPNs see the agent / AI app / business app
-// CRUD tabs. Everyone else sees just the "Genel" tab (theme, locale,
-// storage inspector — safe self-service settings). Compare lowercased so
-// casing drift in MSAL's claim doesn't lock real admins out.
-const ADMIN_EMAILS = new Set([
-  "cenk.sayli@tiryaki.com.tr",
-  "agent@tiryaki.com.tr",
-  "pinar.kurtunoglu@tiryaki.com.tr",
-])
-function isAdmin(email) {
-  return !!email && ADMIN_EMAILS.has(email.toLowerCase())
-}
+// Admin tab visibility is gated on Entra ID group membership rather than a
+// hardcoded UPN list. Membership check lives in useIsInGroup — see its
+// docblock for the primary (idTokenClaims.groups) + Graph fallback strategy.
 
 function IdChip({ label, value }) {
   const { t } = useLocale()
@@ -206,8 +198,13 @@ function EntitySection({ kind, items, headerIcon, onAdd, onEdit, onDelete, onRes
 export function SettingsPage() {
   const { t } = useLocale()
   const config = useConfig()
-  const me = useMe()
-  const showAdminTabs = isAdmin(me.email)
+  // `undefined` (Graph fallback in flight) is treated as false so the admin
+  // tabs never flash visible-then-hidden. Real admins see the tabs the
+  // moment the check resolves — either synchronously from the ID-token
+  // groups claim (no flash) or ~300-500 ms after a fresh login if the
+  // claim isn't configured and we have to hit Graph.
+  const isInAdminGroup = useIsInGroup(ADMIN_GROUP_ID)
+  const showAdminTabs = isInAdminGroup === true
   const [tab, setTab] = useState("general")
   const [editing, setEditing] = useState(null) // { kind, value } | null
   const [deletePrompt, setDeletePrompt] = useState(null) // { kind, item } | null
