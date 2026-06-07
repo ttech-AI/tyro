@@ -10,11 +10,11 @@ const DICTIONARIES = { tr, en, ru, ar }
 // cycles through this list in order — most callsites should call
 // setLocale(id) through a dropdown so the user picks their actual language.
 export const LOCALES = ["tr", "en", "ru", "ar"]
-// Right-to-left languages get document.documentElement.dir = "rtl" so the
-// global layout flips. Tailwind logical-property utilities aren't fully
-// rolled out yet, so a few hardcoded ml-/mr- still read LTR — acceptable as
-// a v1 RTL pass; iterate per screen as needed.
-const RTL_LOCALES = new Set(["ar"])
+// Layout stays LTR for every locale (sidebar on the left, header tools on
+// the right). Arabic text reads naturally right-to-left INSIDE its own
+// containers via the browser's bidi algorithm — no `dir="rtl"` needed
+// globally. Per user request: "arapçada sidebar filan yeri değiştirme
+// sadece yazıları değiştir çeviri yap".
 const DEFAULT = "tr"
 
 export const LocaleContext = createContext(null)
@@ -31,7 +31,9 @@ export function LocaleProvider({ children }) {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, locale)
     document.documentElement.setAttribute("lang", locale)
-    document.documentElement.setAttribute("dir", RTL_LOCALES.has(locale) ? "rtl" : "ltr")
+    // dir always ltr — chrome layout (sidebar, header) stays in place across
+    // all locales; Arabic text bidi-renders naturally inside its containers.
+    document.documentElement.setAttribute("dir", "ltr")
   }, [locale])
 
   const t = useCallback(
