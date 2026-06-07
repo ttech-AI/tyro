@@ -7,11 +7,6 @@ import {
   Mic01Icon,
   MicOff01Icon,
   ArrowUp01Icon,
-  TextBoldIcon,
-  TextItalicIcon,
-  TextUnderlineIcon,
-  LeftToRightListBulletIcon,
-  TextFontIcon,
   File01Icon,
   Cancel01Icon,
 } from "@hugeicons/core-free-icons"
@@ -35,21 +30,6 @@ function formatFileSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`
 }
 
-function FormatButton({ icon, label, onClick }) {
-  return (
-    <button
-      type="button"
-      onMouseDown={(e) => e.preventDefault() /* keep textarea focus */}
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className="grid size-8 place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
-    >
-      <HugeiconsIcon icon={icon} className="size-4" strokeWidth={1.8} />
-    </button>
-  )
-}
-
 export function ChatComposer({
   value,
   onChange,
@@ -67,7 +47,6 @@ export function ChatComposer({
   const taRef = useRef(null)
   const fileInputRef = useRef(null)
   const [attachments, setAttachments] = useState([])
-  const [richTextOpen, setRichTextOpen] = useState(false)
 
   // Mirror controlled value into a ref so dictate's onResult can read the
   // latest text without forcing the recognizer to re-create on each keystroke.
@@ -223,45 +202,6 @@ export function ChatComposer({
     setAttachments((prev) => prev.filter((a) => a.id !== id))
   }
 
-  // ---------- Rich text — markdown syntax insertion ----------
-  function insertSyntax(prefix, suffix = prefix, lineMode = false) {
-    const ta = taRef.current
-    if (!ta) return
-    const start = ta.selectionStart
-    const end = ta.selectionEnd
-    const before = value.slice(0, start)
-    const selected = value.slice(start, end)
-    const after = value.slice(end)
-
-    let next
-    let cursorStart
-    let cursorEnd
-
-    if (lineMode) {
-      // List mode: prefix each line of selection (or current line if empty)
-      const block = selected || ""
-      const lines = block ? block.split("\n") : [""]
-      const prefixed = lines.map((l) => (l.startsWith(prefix) ? l : `${prefix}${l}`)).join("\n")
-      next = `${before}${prefixed}${after}`
-      cursorStart = start + prefix.length
-      cursorEnd = start + prefixed.length
-    } else if (selected) {
-      next = `${before}${prefix}${selected}${suffix}${after}`
-      cursorStart = start + prefix.length
-      cursorEnd = end + prefix.length
-    } else {
-      // No selection: insert syntax with cursor between
-      next = `${before}${prefix}${suffix}${after}`
-      cursorStart = cursorEnd = start + prefix.length
-    }
-
-    onChange?.(next)
-    requestAnimationFrame(() => {
-      ta.focus()
-      ta.setSelectionRange(cursorStart, cursorEnd)
-    })
-  }
-
   const hasContent = value.trim().length > 0 || attachments.length > 0
 
   return (
@@ -276,44 +216,7 @@ export function ChatComposer({
       <div
         className="w-full overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
       >
-      {/* Rich text toolbar */}
-      <AnimatePresence initial={false}>
-        {richTextOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="overflow-hidden border-b border-border/60 bg-muted/30"
-          >
-            <div className="flex items-center gap-0.5 px-3 py-1.5">
-              <FormatButton
-                icon={TextBoldIcon}
-                label={t("chat.format.bold")}
-                onClick={() => insertSyntax("**")}
-              />
-              <FormatButton
-                icon={TextItalicIcon}
-                label={t("chat.format.italic")}
-                onClick={() => insertSyntax("_")}
-              />
-              <FormatButton
-                icon={TextUnderlineIcon}
-                label={t("chat.format.underline")}
-                onClick={() => insertSyntax("<u>", "</u>")}
-              />
-              <span aria-hidden="true" className="mx-1 h-5 w-px bg-border/70" />
-              <FormatButton
-                icon={LeftToRightListBulletIcon}
-                label={t("chat.format.bulletList")}
-                onClick={() => insertSyntax("- ", "", true)}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Attachments preview */}
+{/* Attachments preview */}
       <AnimatePresence initial={false}>
         {attachments.length > 0 && (
           <motion.div
@@ -425,30 +328,6 @@ export function ChatComposer({
           <AgentSelect value={agent} onChange={onAgentChange} />
         </div>
         <div className="flex items-center gap-1 sm:gap-2">
-          {/* Rich-text toggle — hidden on mobile (ChatGPT/Claude mobile
-              composers omit it too). Stays available on tablet+ where the
-              row has room. */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => setRichTextOpen((v) => !v)}
-                aria-label={t("chat.format.toggle")}
-                aria-pressed={richTextOpen}
-                className={cn(
-                  "hidden text-muted-foreground hover:text-foreground sm:inline-flex sm:size-9",
-                  richTextOpen && "bg-brand-soft/60 text-brand-deep",
-                )}
-              >
-                <HugeiconsIcon icon={TextFontIcon} className="size-[18px]" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top" sideOffset={6}>
-              {t("chat.format.toggle")}
-            </TooltipContent>
-          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
