@@ -22,9 +22,10 @@ export function NavMain({ items, activeId, onSelect, onQuickAction }) {
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
-                onClick={onQuickAction}
+                type="button"
+                onClick={() => onQuickAction?.()}
                 tooltip={t("nav.quickAction", "Yeni sohbet")}
-                className="bg-gradient-to-r from-brand-from via-brand-via to-brand-to text-white shadow-sm duration-200 ease-linear hover:brightness-110 hover:text-white active:text-white"
+                className="cursor-pointer bg-gradient-to-r from-brand-from via-brand-via to-brand-to text-white shadow-sm duration-200 ease-linear hover:brightness-110 hover:text-white active:text-white"
               >
                 <HugeiconsIcon icon={PlusSignCircleIcon} />
                 <span>{t("nav.quickAction", "Yeni sohbet")}</span>
@@ -62,7 +63,16 @@ export function NavMain({ items, activeId, onSelect, onQuickAction }) {
                     )}
                   >
                     {item.icon && <HugeiconsIcon icon={item.icon} />}
-                    <span className="flex-1">{t(item.labelKey)}</span>
+                    {/* Label has explicit collapsed-hide because shadcn's
+                        sidebar relies on `[&>span:last-child]:hidden` to
+                        clear the label on the icon-only rail. By adding a
+                        trailing external-link icon span AFTER the label
+                        (for item.isExternal), the label is no longer the
+                        last child and that rule misses it — so we hide it
+                        explicitly here. */}
+                    <span className="flex-1 group-data-[collapsible=icon]:hidden">
+                      {t(item.labelKey)}
+                    </span>
                     {item.isExternal && (
                       <HugeiconsIcon
                         icon={ArrowUpRight01Icon}
