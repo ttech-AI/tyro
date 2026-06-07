@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useLocale } from "@/hooks/useLocale"
+import { LOCALES } from "@/providers/LocaleProvider"
 
 export function LanguageSwitcher() {
   const { locale, setLocale, t } = useLocale()
@@ -32,10 +33,13 @@ export function LanguageSwitcher() {
         </TooltipTrigger>
         <TooltipContent>{t("header.language")}</TooltipContent>
       </Tooltip>
-      <DropdownMenuContent align="end" className="w-40">
+      <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuRadioGroup value={locale} onValueChange={setLocale}>
-          <DropdownMenuRadioItem value="tr">{t("locale.tr")}</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="en">{t("locale.en")}</DropdownMenuRadioItem>
+          {LOCALES.map((code) => (
+            <DropdownMenuRadioItem key={code} value={code}>
+              {t(`locale.${code}`)}
+            </DropdownMenuRadioItem>
+          ))}
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>

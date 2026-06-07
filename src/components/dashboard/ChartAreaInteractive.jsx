@@ -25,6 +25,7 @@ import {
   ToggleGroupItem,
 } from "@/components/ui/toggle-group"
 import { useLocale } from "@/hooks/useLocale"
+import { bcp47 } from "@/lib/intl-cache"
 import { chartData } from "@/data/chartData"
 
 export function ChartAreaInteractive() {
@@ -46,7 +47,7 @@ export function ChartAreaInteractive() {
     return chartData.filter((item) => new Date(item.date) >= start)
   }, [timeRange])
 
-  const intlLocale = locale === "tr" ? "tr-TR" : "en-US"
+  const intlLocale = bcp47(locale)
 
   return (
     <Card className="@container/card">

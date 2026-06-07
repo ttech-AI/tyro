@@ -10,8 +10,19 @@
 
 const formatters = new Map()
 
-function bcp47(locale) {
-  return locale === "tr" ? "tr-TR" : "en-US"
+// Map our short locale codes to BCP-47 tags. Used by every Intl.* lookup
+// AND by the Web Speech APIs (recognizer + synthesis) — exported so other
+// modules can stay in sync with one mapping. Add new locales here when
+// they get a strings file.
+const BCP47 = {
+  tr: "tr-TR",
+  en: "en-US",
+  ru: "ru-RU",
+  ar: "ar-SA",
+}
+
+export function bcp47(locale) {
+  return BCP47[locale] || "en-US"
 }
 
 /**

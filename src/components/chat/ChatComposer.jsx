@@ -23,6 +23,7 @@ import { useSpeechRecognition } from "@/hooks/useSpeechRecognition"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { MAX_ATTACHMENT_BYTES } from "@/lib/copilot"
+import { bcp47 } from "@/lib/intl-cache"
 
 function formatFileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -60,7 +61,7 @@ export function ChatComposer({
   // Web Speech API wrapper. The hook never mutates `value` — it only fires
   // callbacks; we own the textarea state and append finalized chunks here.
   const speech = useSpeechRecognition({
-    lang: locale === "tr" ? "tr-TR" : "en-US",
+    lang: bcp47(locale),
     continuous: true,
     interimResults: true,
     onResult: ({ final, isFinal }) => {

@@ -14,6 +14,7 @@ import { useMe } from "@/hooks/useMe"
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis"
 import { loadMessages, saveMessages, clearMessages } from "@/lib/chatPersistence"
 import { startConversation, sendMessage, sendAction, resolveSuggestedAction, filesToAttachments } from "@/lib/copilot"
+import { bcp47 } from "@/lib/intl-cache"
 import { cn } from "@/lib/utils"
 
 function extractSubmitActions(items) {
@@ -214,7 +215,7 @@ export function ChatScreen({ onReset, initialAgent }) {
     const lead = t("chat.subtitle.lead")
     const highlight = t("chat.subtitle.highlight")
     const fullText = `${greeting}, ${firstName}. ${lead} ${highlight}`
-    const lang = locale === "tr" ? "tr-TR" : "en-US"
+    const lang = bcp47(locale)
     // Slight slowdown (rate 0.95) gives Turkish a smoother, less choppy
     // cadence — the default 1.0 made the engine clip syllables on the
     // bundled Windows Tolga voice. Cloud / neural voices handle 0.95

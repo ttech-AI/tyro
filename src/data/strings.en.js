@@ -189,6 +189,8 @@ export const strings = {
   // Locale switcher
   "locale.tr": "Türkçe",
   "locale.en": "English",
+  "locale.ru": "Русский",
+  "locale.ar": "العربية",
 
   // Chat
   "chat.greeting.morning": "Good morning",

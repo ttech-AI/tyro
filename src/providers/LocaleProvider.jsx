@@ -1,10 +1,20 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from "react"
 import { strings as tr } from "@/data/strings.tr"
 import { strings as en } from "@/data/strings.en"
+import { strings as ru } from "@/data/strings.ru"
+import { strings as ar } from "@/data/strings.ar"
 
 const STORAGE_KEY = "tyro-locale"
-const DICTIONARIES = { tr, en }
-const VALID = ["tr", "en"]
+const DICTIONARIES = { tr, en, ru, ar }
+// Locales available in the picker. Order = display order in UI. toggle()
+// cycles through this list in order — most callsites should call
+// setLocale(id) through a dropdown so the user picks their actual language.
+export const LOCALES = ["tr", "en", "ru", "ar"]
+// Right-to-left languages get document.documentElement.dir = "rtl" so the
+// global layout flips. Tailwind logical-property utilities aren't fully
+// rolled out yet, so a few hardcoded ml-/mr- still read LTR — acceptable as
+// a v1 RTL pass; iterate per screen as needed.
+const RTL_LOCALES = new Set(["ar"])
 const DEFAULT = "tr"
 
 export const LocaleContext = createContext(null)
@@ -12,7 +22,7 @@ export const LocaleContext = createContext(null)
 function readInitial() {
   if (typeof window === "undefined") return DEFAULT
   const saved = window.localStorage.getItem(STORAGE_KEY)
-  return VALID.includes(saved) ? saved : DEFAULT
+  return LOCALES.includes(saved) ? saved : DEFAULT
 }
 
 export function LocaleProvider({ children }) {
@@ -21,6 +31,7 @@ export function LocaleProvider({ children }) {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, locale)
     document.documentElement.setAttribute("lang", locale)
+    document.documentElement.setAttribute("dir", RTL_LOCALES.has(locale) ? "rtl" : "ltr")
   }, [locale])
 
   const t = useCallback(
@@ -32,12 +43,18 @@ export function LocaleProvider({ children }) {
   )
 
   const setLocale = useCallback(
-    (next) => setLocaleState(VALID.includes(next) ? next : DEFAULT),
+    (next) => setLocaleState(LOCALES.includes(next) ? next : DEFAULT),
     [],
   )
 
+  // Cycle through LOCALES in order. Kept for backward compat with the
+  // single-tap header toggle pattern.
   const toggle = useCallback(
-    () => setLocaleState((l) => (l === "tr" ? "en" : "tr")),
+    () =>
+      setLocaleState((l) => {
+        const i = LOCALES.indexOf(l)
+        return LOCALES[(i + 1) % LOCALES.length]
+      }),
     [],
   )
 
