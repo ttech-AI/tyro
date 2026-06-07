@@ -8,7 +8,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { useMsal } from "@azure/msal-react"
 import { useNavigate } from "react-router-dom"
-import { PastelOrb } from "@/components/brand/PastelOrb"
+import { UserAvatar } from "@/components/common/UserAvatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,7 +62,7 @@ export function NavUser() {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center"
             >
               <div className="-ml-[5px] size-7 shrink-0 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:size-6">
-                <PastelOrb label={me.fullName} />
+                <UserAvatar photoUrl={me.photoUrl} label={me.fullName} />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-medium">{me.fullName}</span>
@@ -82,7 +82,7 @@ export function NavUser() {
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <div className="h-8 w-8">
-                  <PastelOrb label={me.fullName} />
+                  <UserAvatar photoUrl={me.photoUrl} label={me.fullName} />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{me.fullName}</span>

@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils"
 import { normalizeBotMarkdown } from "@/lib/markdown"
 import { getDateTimeFormat } from "@/lib/intl-cache"
 import { useLocale } from "@/hooks/useLocale"
-import { PastelOrb } from "@/components/brand/PastelOrb"
+import { useMe } from "@/hooks/useMe"
+import { UserAvatar } from "@/components/common/UserAvatar"
 import { IconOrLogo } from "@/components/common/IconOrLogo"
 import { useConfig } from "@/hooks/useConfig"
 import { AdaptiveCardView } from "./AdaptiveCardView"
@@ -153,6 +154,7 @@ function CopyButton({ content }) {
 function ChatMessageInner({ message, onCardAction, onSuggestedAction }) {
   const { locale } = useLocale()
   const { getAgent } = useConfig()
+  const me = useMe()
   const isUser = message.role === "user"
   const time = message.time instanceof Date ? message.time : new Date(message.time)
 
@@ -192,9 +194,9 @@ function ChatMessageInner({ message, onCardAction, onSuggestedAction }) {
             {formatTime(time, locale)}
           </span>
         </div>
-        {/* User avatar — pastel gradient orb only, no initials inside.
-            The orb itself is the identity cue; initials added noise. */}
-        <PastelOrb className="size-7 shrink-0" />
+        {/* User avatar — Microsoft Graph profile photo when available
+            (cached per account in localStorage), pastel orb fallback. */}
+        <UserAvatar photoUrl={me.photoUrl} label={me.fullName} className="size-7 shrink-0" />
       </motion.div>
     )
   }
