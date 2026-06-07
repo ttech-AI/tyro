@@ -216,11 +216,11 @@ export function ChatScreen({ onReset, initialAgent }) {
     const highlight = t("chat.subtitle.highlight")
     const fullText = `${greeting}, ${firstName}. ${lead} ${highlight}`
     const lang = bcp47(locale)
-    // Slight slowdown (rate 0.95) gives Turkish a smoother, less choppy
-    // cadence — the default 1.0 made the engine clip syllables on the
-    // bundled Windows Tolga voice. Cloud / neural voices handle 0.95
-    // naturally too.
-    speak(fullText, { lang, rate: 0.95 })
+    // rate 1.1 — slightly faster than default (1.0) so the greeting sounds
+    // brisk and confident instead of plodding. Cloud / neural voices handle
+    // it cleanly; if the user is on a slow bundled OS voice the engine will
+    // still keep up — most older voices clip more at low rates than high.
+    speak(fullText, { lang, rate: 1.1 })
   }
 
   // The composer drives the recognizer; we only need to mirror its boolean
