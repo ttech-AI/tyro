@@ -46,6 +46,29 @@ function makeId() {
 // Claude / Gemini all converge on.
 const NEAR_BOTTOM_THRESHOLD_PX = 120
 
+// Empty-state welcome reveal — matches the dashboard hero (AppLauncher.jsx)
+// so the app speaks in one motion vocabulary. Each word fades + rises +
+// un-blurs in sequence under a small parent-driven stagger.
+const wordVariants = {
+  hidden: { opacity: 0, y: 18, filter: "blur(8px)" },
+  visible: {
+    opacity: 1,
+    y: 0,
+    filter: "blur(0px)",
+    transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+  },
+}
+const greetingLineVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08, delayChildren: 0.35 } },
+}
+const subtitleLineVariants = {
+  hidden: {},
+  // Subtitle starts after the greeting line is largely revealed so it
+  // feels like one continuous wave instead of two parallel runs.
+  visible: { transition: { staggerChildren: 0.08, delayChildren: 0.95 } },
+}
+
 export function ChatScreen({ onReset, initialAgent }) {
   const { t, locale } = useLocale()
   const { agents, getAgent } = useConfig()
@@ -498,22 +521,64 @@ export function ChatScreen({ onReset, initialAgent }) {
           size={isMobile ? 110 : 150}
           onClick={handleOrbClick}
         />
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          className="mt-6 space-y-1 text-center sm:mt-10"
-        >
-          <h1 className="text-2xl font-medium tracking-tight text-foreground sm:text-3xl md:text-4xl">
-            {t(greetingKey(greetHour))}, {firstName}
-          </h1>
-          <p className="text-xl tracking-tight text-foreground/90 sm:text-2xl md:text-3xl">
-            {t("chat.subtitle.lead")}{" "}
-            <span className="bg-gradient-to-r from-brand-from via-brand-via to-brand-to bg-clip-text text-transparent">
-              {t("chat.subtitle.highlight")}
-            </span>
-          </p>
-        </motion.div>
+        {(() => {
+          // Pre-split per-render so the locale toggle re-renders the right
+          // tokens. Each word becomes its own motion.span with wordVariants
+          // and the parent's stagger drives the wave.
+          const greetingWords = t(greetingKey(greetHour)).split(" ")
+          const leadWords = t("chat.subtitle.lead").split(" ")
+          return (
+            <div className="mt-6 space-y-1 text-center sm:mt-10">
+              <motion.h1
+                initial="hidden"
+                animate="visible"
+                variants={greetingLineVariants}
+                className="text-2xl font-medium tracking-tight text-foreground sm:text-3xl md:text-4xl"
+                aria-label={`${t(greetingKey(greetHour))}, ${firstName}`}
+              >
+                {greetingWords.map((word, i) => (
+                  <motion.span key={`g-${i}`} variants={wordVariants} className="inline-block">
+                    {word}
+                    {i < greetingWords.length - 1 && " "}
+                  </motion.span>
+                ))}
+                <motion.span variants={wordVariants} className="inline-block">
+                  ,&nbsp;
+                </motion.span>
+                <motion.span
+                  variants={wordVariants}
+                  className="inline-block bg-gradient-to-r from-brand-from via-brand-via to-brand-to bg-clip-text text-transparent"
+                >
+                  {firstName}
+                </motion.span>
+              </motion.h1>
+
+              <motion.p
+                initial="hidden"
+                animate="visible"
+                variants={subtitleLineVariants}
+                className="text-xl tracking-tight text-foreground/90 sm:text-2xl md:text-3xl"
+                aria-label={`${t("chat.subtitle.lead")} ${t("chat.subtitle.highlight")}`}
+              >
+                {leadWords.map((word, i) => (
+                  <motion.span key={`l-${i}`} variants={wordVariants} className="inline-block">
+                    {word}
+                    {i < leadWords.length - 1 && " "}
+                  </motion.span>
+                ))}
+                <motion.span variants={wordVariants} className="inline-block">
+                  &nbsp;
+                </motion.span>
+                <motion.span
+                  variants={wordVariants}
+                  className="inline-block bg-gradient-to-r from-brand-from via-brand-via to-brand-to bg-clip-text text-transparent"
+                >
+                  {t("chat.subtitle.highlight")}
+                </motion.span>
+              </motion.p>
+            </div>
+          )
+        })()}
         <ChatComposer
           value={input}
           onChange={handleInputChange}
