@@ -253,7 +253,7 @@ export const strings = {
   "dashboard.hero.secondary": "Uygulamaları gör",
   "launcher.agents.title": "AI Agentlar",
   "launcher.agents.subtitle": "Konuşma başlatmak istediğin asistanı seç",
-  "launcher.aiApps.title": "AI Ürünler",
+  "launcher.aiApps.title": "AI Çözümler",
   "launcher.aiApps.subtitle": "Yapay zeka destekli iş çözümleri",
   "launcher.businessApps.title": "İş Uygulamaları",
   "launcher.businessApps.subtitle": "Kurumsal sistemler ve araçlar",

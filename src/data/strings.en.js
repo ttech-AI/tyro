@@ -253,7 +253,7 @@ export const strings = {
   "dashboard.hero.secondary": "See apps",
   "launcher.agents.title": "AI Agents",
   "launcher.agents.subtitle": "Pick an assistant to start a conversation",
-  "launcher.aiApps.title": "AI Products",
+  "launcher.aiApps.title": "AI Solutions",
   "launcher.aiApps.subtitle": "AI-powered business solutions",
   "launcher.businessApps.title": "Business Apps",
   "launcher.businessApps.subtitle": "Enterprise systems and tools",

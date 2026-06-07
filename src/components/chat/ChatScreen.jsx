@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Refresh01Icon, ArrowDown01Icon } from "@hugeicons/core-free-icons"
@@ -537,10 +537,12 @@ export function ChatScreen({ onReset, initialAgent }) {
                 aria-label={`${t(greetingKey(greetHour))}, ${firstName}`}
               >
                 {greetingWords.map((word, i) => (
-                  <motion.span key={`g-${i}`} variants={wordVariants} className="inline-block">
-                    {word}
-                    {i < greetingWords.length - 1 && " "}
-                  </motion.span>
+                  <Fragment key={`g-${i}`}>
+                    <motion.span variants={wordVariants} className="inline-block">
+                      {word}
+                    </motion.span>
+                    {i < greetingWords.length - 1 ? " " : null}
+                  </Fragment>
                 ))}
                 <motion.span variants={wordVariants} className="inline-block">
                   ,&nbsp;
@@ -561,14 +563,13 @@ export function ChatScreen({ onReset, initialAgent }) {
                 aria-label={`${t("chat.subtitle.lead")} ${t("chat.subtitle.highlight")}`}
               >
                 {leadWords.map((word, i) => (
-                  <motion.span key={`l-${i}`} variants={wordVariants} className="inline-block">
-                    {word}
-                    {i < leadWords.length - 1 && " "}
-                  </motion.span>
+                  <Fragment key={`l-${i}`}>
+                    <motion.span variants={wordVariants} className="inline-block">
+                      {word}
+                    </motion.span>
+                    {" "}
+                  </Fragment>
                 ))}
-                <motion.span variants={wordVariants} className="inline-block">
-                  &nbsp;
-                </motion.span>
                 <motion.span
                   variants={wordVariants}
                   className="inline-block bg-gradient-to-r from-brand-from via-brand-via to-brand-to bg-clip-text text-transparent"

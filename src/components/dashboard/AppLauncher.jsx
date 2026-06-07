@@ -63,7 +63,7 @@ function HeroSection({ onNewChat }) {
 
   return (
     <section className="relative">
-      <div className="grid grid-cols-1 items-center gap-10 py-10 md:grid-cols-[1.4fr_1fr] md:gap-12 md:py-14">
+      <div className="grid grid-cols-1 items-center gap-10 pt-10 pb-4 md:grid-cols-[1.4fr_1fr] md:gap-12 md:pt-14 md:pb-6">
         {/* LEFT — greeting + CTA */}
         <div className="space-y-5">
           <motion.h1
@@ -244,7 +244,7 @@ export function AppLauncher({ onOpenChat, onNewChat }) {
     locale === "tr" ? "Sohbet başlat ve sorularını sor" : "Start a chat and ask your questions"
 
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-6 overflow-y-auto px-3 pb-10 sm:gap-8 sm:px-4 sm:pb-12 lg:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-4 overflow-y-auto px-3 pb-10 sm:gap-5 sm:px-4 sm:pb-12 lg:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <HeroSection onNewChat={onNewChat} />
 
       {/* Elegant divider */}
