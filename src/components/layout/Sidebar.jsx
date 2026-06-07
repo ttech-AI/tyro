@@ -27,9 +27,12 @@ import { useLocale } from "@/hooks/useLocale"
 const navMain = [
   { id: "dashboard", labelKey: "nav.dashboard", icon: DashboardCircleIcon, ready: true },
   { id: "chat", labelKey: "nav.chat", icon: AiChat02Icon, ready: true },
+  { id: "analytics", labelKey: "nav.analytics", icon: Analytics01Icon, ready: true, showConstructionToast: true },
   // External link: M365 Copilot lives outside TYRO. handleSelect short-circuits
   // on isExternal so it never enters the router (no PATH_TO_ID entry, no
   // breadcrumb update, no active highlight) — opens in a new tab instead.
+  // Placed at the bottom of the workspace group so internal SPA routes stay
+  // together at the top; Copilot is the "leave-the-app" affordance.
   {
     id: "copilot",
     labelKey: "nav.copilot",
@@ -39,7 +42,6 @@ const navMain = [
     isExternal: true,
     href: "https://m365.cloud.microsoft/chat",
   },
-  { id: "analytics", labelKey: "nav.analytics", icon: Analytics01Icon, ready: true, showConstructionToast: true },
 ]
 
 function showComingSoon(label, t) {

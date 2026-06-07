@@ -28,7 +28,21 @@ import { EntityForm } from "./EntityForm"
 import { GeneralTab } from "./GeneralTab"
 import { useConfig } from "@/hooks/useConfig"
 import { useLocale } from "@/hooks/useLocale"
+import { useMe } from "@/hooks/useMe"
 import { cn } from "@/lib/utils"
+
+// Admin allow-list: only these UPNs see the agent / AI app / business app
+// CRUD tabs. Everyone else sees just the "Genel" tab (theme, locale,
+// storage inspector — safe self-service settings). Compare lowercased so
+// casing drift in MSAL's claim doesn't lock real admins out.
+const ADMIN_EMAILS = new Set([
+  "cenk.sayli@tiryaki.com.tr",
+  "agent@tiryaki.com.tr",
+  "pinar.kurtunoglu@tiryaki.com.tr",
+])
+function isAdmin(email) {
+  return !!email && ADMIN_EMAILS.has(email.toLowerCase())
+}
 
 function IdChip({ label, value }) {
   const { t } = useLocale()
@@ -192,9 +206,16 @@ function EntitySection({ kind, items, headerIcon, onAdd, onEdit, onDelete, onRes
 export function SettingsPage() {
   const { t } = useLocale()
   const config = useConfig()
+  const me = useMe()
+  const showAdminTabs = isAdmin(me.email)
   const [tab, setTab] = useState("general")
   const [editing, setEditing] = useState(null) // { kind, value } | null
   const [deletePrompt, setDeletePrompt] = useState(null) // { kind, item } | null
+
+  // Non-admin lands on /settings → force them onto the general tab. Without
+  // this, if a non-admin's localStorage somehow had a stale "agents" value
+  // they'd see an empty TabsContent (since the trigger is hidden).
+  const safeTab = showAdminTabs || tab === "general" ? tab : "general"
 
   function openNew(kind) {
     setEditing({ kind, value: null })
@@ -249,7 +270,7 @@ export function SettingsPage() {
         <p className="text-sm text-muted-foreground">{t("settings.subtitle")}</p>
       </header>
 
-      <Tabs value={tab} onValueChange={setTab} className="flex-1">
+      <Tabs value={safeTab} onValueChange={setTab} className="flex-1">
         <TabsList
           className={cn(
             // Recessed-track segmented-control (iOS/macOS). The track is a soft fill +
@@ -272,11 +293,13 @@ export function SettingsPage() {
           )}
         >
           {[
-            { value: "general", icon: Settings02Icon, label: t("settings.tabs.general") },
-            { value: "agents", icon: Robot01Icon, label: t("settings.tabs.agents") },
-            { value: "aiApps", icon: AiBrain02Icon, label: t("settings.tabs.aiApps") },
-            { value: "businessApps", icon: Office365Icon, label: t("settings.tabs.businessApps") },
-          ].map((tabDef) => (
+            { value: "general", icon: Settings02Icon, label: t("settings.tabs.general"), adminOnly: false },
+            { value: "agents", icon: Robot01Icon, label: t("settings.tabs.agents"), adminOnly: true },
+            { value: "aiApps", icon: AiBrain02Icon, label: t("settings.tabs.aiApps"), adminOnly: true },
+            { value: "businessApps", icon: Office365Icon, label: t("settings.tabs.businessApps"), adminOnly: true },
+          ]
+            .filter((tabDef) => !tabDef.adminOnly || showAdminTabs)
+            .map((tabDef) => (
             <TabsTrigger
               key={tabDef.value}
               value={tabDef.value}
@@ -335,7 +358,7 @@ export function SettingsPage() {
               aiApps: t("settings.tabs.aiApps"),
               businessApps: t("settings.tabs.businessApps"),
             }
-            return labels[tab]
+            return labels[safeTab]
           })()}
         </p>
 
