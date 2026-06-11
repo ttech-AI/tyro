@@ -248,6 +248,12 @@ export const strings = {
   "chat.message.copy": "Mesajı kopyala",
   "chat.message.copied": "Kopyalandı",
   "chat.message.copyFailed": "Kopyalanamadı",
+  "chat.message.incomplete": "Yanıt yarıda kesildi",
+  "chat.message.retry": "Tekrar dene",
+  "chat.retry.title": "Tekrar denensin mi?",
+  "chat.retry.desc": "Bağlantı yarıda kesildiği için yanıt eksik kalmış olabilir. Bu istek yeniden gönderilecek.",
+  "chat.retry.confirm": "Gönder",
+  "chat.retry.cancel": "Vazgeç",
 
   // App Launcher (Dashboard)
   "launcher.title": "TYRO AI Platformu",

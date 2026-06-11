@@ -1,11 +1,21 @@
 import { memo, useEffect, useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Copy01Icon, Tick01Icon, File01Icon, Download01Icon } from "@hugeicons/core-free-icons"
+import { Copy01Icon, Tick01Icon, File01Icon, Download01Icon, Refresh01Icon, Alert02Icon } from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog"
 import { normalizeBotMarkdown } from "@/lib/markdown"
 import { getDateTimeFormat } from "@/lib/intl-cache"
 import { useLocale } from "@/hooks/useLocale"
@@ -151,8 +161,56 @@ function CopyButton({ content }) {
   )
 }
 
-function ChatMessageInner({ message, onCardAction, onSuggestedAction }) {
-  const { locale } = useLocale()
+// Yarıda kesilmiş yanıtlarda kopyala butonunun yanında görünür. Tıklayınca
+// onay popup'ı açar; onaylanınca aynı tur yeniden gönderilir (onRetry).
+// Sessiz otomatik retry yerine onaya bağladık: agent'lar yan etkili işlem
+// (mail/ticket) yapabildiği için aynı tur habersiz iki kez tetiklenmesin.
+function RetryButton({ message, onRetry }) {
+  const { t } = useLocale()
+  const [open, setOpen] = useState(false)
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={t("chat.message.retry")}
+        title={t("chat.message.retry")}
+        className={cn(
+          "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/60",
+          "transition hover:bg-muted hover:text-foreground",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40",
+        )}
+      >
+        <HugeiconsIcon icon={Refresh01Icon} className="size-3.5" strokeWidth={1.8} />
+      </button>
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>{t("chat.retry.title")}</DialogTitle>
+          <DialogDescription>{t("chat.retry.desc")}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" size="sm">
+              {t("chat.retry.cancel")}
+            </Button>
+          </DialogClose>
+          <Button
+            size="sm"
+            onClick={() => {
+              setOpen(false)
+              onRetry?.(message)
+            }}
+          >
+            {t("chat.retry.confirm")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function ChatMessageInner({ message, onCardAction, onSuggestedAction, onRetry }) {
+  const { t, locale } = useLocale()
   const { getAgent } = useConfig()
   const me = useMe()
   const isUser = message.role === "user"
@@ -273,7 +331,14 @@ function ChatMessageInner({ message, onCardAction, onSuggestedAction }) {
             (no hover-reveal) — matches ChatGPT/Claude mobile pattern. */}
         <div className="mt-0.5 flex items-center gap-1 text-muted-foreground/70">
           <span className="text-[10px] tabular-nums">{formatTime(time, locale)}</span>
+          {message.incomplete && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+              <HugeiconsIcon icon={Alert02Icon} className="size-3" strokeWidth={1.8} />
+              {t("chat.message.incomplete")}
+            </span>
+          )}
           <CopyButton content={message.content} />
+          {message.incomplete && message.retry && <RetryButton message={message} onRetry={onRetry} />}
         </div>
       </div>
     </motion.div>
@@ -289,5 +354,6 @@ function ChatMessageInner({ message, onCardAction, onSuggestedAction }) {
 export const ChatMessage = memo(ChatMessageInner, (prev, next) =>
   prev.message === next.message &&
   prev.onCardAction === next.onCardAction &&
-  prev.onSuggestedAction === next.onSuggestedAction,
+  prev.onSuggestedAction === next.onSuggestedAction &&
+  prev.onRetry === next.onRetry,
 )

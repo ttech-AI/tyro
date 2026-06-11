@@ -42,6 +42,11 @@ function activityToChunk(activity) {
     text: activity.text || "",
     attachments: activity.attachments || [],
     suggestedActions: suggested,
+    // Akış protokolü: bot önce ara "typing" delta'ları, en sonda TEK bir
+    // tamamlanmış "message" aktivitesi gönderir. `final` yalnızca bu son
+    // mesajda true olur — iOS PWA'da bağlantı final gelmeden koparsa
+    // ChatScreen yanıtın yarıda kesildiğini buradan anlar.
+    final: activity?.type === "message",
     done: false,
   }
 }

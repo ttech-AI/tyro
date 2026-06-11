@@ -357,18 +357,68 @@ export function ChatScreen({ onReset, initialAgent }) {
     let fullText = ""
     let fullAttachments = []
     let fullSuggested = []
+    // Tamamlanmış "message" aktivitesi gördük mü? Görmeden akış biterse
+    // (iOS PWA'da bağlantı kopması) yanıt yarıda kalmış demektir.
+    let sawFinal = false
     for await (const chunk of generator) {
       if (abortGenRef.current !== gen) return { aborted: true }
       if (chunk.done) break
+      if (chunk.final) sawFinal = true
       fullText = chunk.text
       fullAttachments = chunk.attachments || []
       fullSuggested = chunk.suggestedActions || []
       setMessages((m) => m.map((msg) => msg.id === replyId ? { ...msg, content: fullText, attachments: fullAttachments, suggestedActions: fullSuggested } : msg))
     }
-    if (!fullText && !fullAttachments.length && !fullSuggested.length) {
+    const hasContent = Boolean(fullText) || fullAttachments.length > 0 || fullSuggested.length > 0
+    if (!hasContent) {
       setMessages((m) => m.filter((msg) => msg.id !== replyId))
     }
-    return { fullText, fullAttachments, fullSuggested }
+    // İçerik geldi ama final mesaj hiç gelmediyse: akış erken kesilmiş.
+    const incomplete = hasContent && !sawFinal
+    return { fullText, fullAttachments, fullSuggested, incomplete, replyId }
+  }
+
+  // Akış bittikten sonra ortak son-iş: yarıda kesildiyse baloncuğu "eksik"
+  // işaretle (Tekrar dene butonu için retry tarifini sakla), yoksa orb'u
+  // kısa süre "speaking"e al. retryDescriptor: { kind:"message", text } veya
+  // { kind:"action", actionData } — retryTurn aynı turu yeniden gönderir.
+  function finishStream(res, retryDescriptor) {
+    if (res.incomplete) {
+      setMessages((m) => m.map((msg) => (msg.id === res.replyId ? { ...msg, incomplete: true, retry: retryDescriptor } : msg)))
+      setOrbState("idle")
+    } else {
+      setOrbState("speaking")
+      setTimeout(() => setOrbState("idle"), 2400)
+    }
+  }
+
+  // "Tekrar dene" → onaylanınca aynı turu yeniden gönderir. Eski yarım
+  // baloncuğu kaldırıp temiz bir akış başlatır (tek nihai yanıt kalsın).
+  async function handleRetry(message) {
+    if (!message?.retry) return
+    await conversationReadyRef.current
+    const client = copilotClientRef.current?.client
+    if (!client) return
+    setMessages((m) => m.filter((msg) => msg.id !== message.id))
+    setIsNearBottom(true)
+    setOrbState("thinking")
+    setBusy(true)
+    const gen = ++abortGenRef.current
+    try {
+      const r = message.retry
+      const generator =
+        r.kind === "action"
+          ? sendAction(client, r.actionData ?? {})
+          : sendMessage(client, String(r.text ?? ""))
+      const res = await streamReply(generator, gen)
+      if (res.aborted) return
+      finishStream(res, r)
+    } catch (err) {
+      console.error("Retry error:", err)
+      setOrbState("idle")
+    } finally {
+      if (abortGenRef.current === gen) setBusy(false)
+    }
   }
 
   // suggestedActions chip'ine tıklanınca: imBack/messageBack → mesaj gönder,
@@ -389,13 +439,13 @@ export function ChatScreen({ onReset, initialAgent }) {
     setBusy(true)
     const gen = ++abortGenRef.current
     try {
+      const actionData = typeof payload === "object" ? payload : { value: payload }
       const generator = kind === "action"
-        ? sendAction(client, typeof payload === "object" ? payload : { value: payload })
+        ? sendAction(client, actionData)
         : sendMessage(client, String(payload))
       const res = await streamReply(generator, gen)
       if (res.aborted) return
-      setOrbState("speaking")
-      setTimeout(() => setOrbState("idle"), 2400)
+      finishStream(res, kind === "action" ? { kind: "action", actionData } : { kind: "message", text: String(payload) })
     } catch (err) {
       console.error("Suggested action error:", err)
       setOrbState("idle")
@@ -459,8 +509,9 @@ export function ChatScreen({ onReset, initialAgent }) {
       const wireAttachments = picked.length ? await filesToAttachments(picked.map((a) => a.file)) : []
       const res = await streamReply(sendMessage(client, text, wireAttachments), gen)
       if (res.aborted) return
-      setOrbState("speaking")
-      setTimeout(() => setOrbState("idle"), 2400)
+      // Retry tarifi yalnızca metin: base64 dosyalar kalıcı tutulmadığı için
+      // (sessionStorage quota) eklenti yeniden gönderilemez — metinle tekrar dener.
+      finishStream(res, { kind: "message", text })
     } catch (err) {
       if (abortGenRef.current !== gen) return
       console.error("Copilot Studio error:", err)
@@ -481,8 +532,7 @@ export function ChatScreen({ onReset, initialAgent }) {
     try {
       const res = await streamReply(sendAction(client, actionData), gen)
       if (res.aborted) return
-      setOrbState("speaking")
-      setTimeout(() => setOrbState("idle"), 2400)
+      finishStream(res, { kind: "action", actionData })
     } catch (err) {
       console.error("Card action error:", err)
       setOrbState("idle")
@@ -670,7 +720,7 @@ export function ChatScreen({ onReset, initialAgent }) {
       >
         <div ref={contentRef} className="space-y-4">
           {messages.map((m) => (
-            <ChatMessage key={m.id} message={m} onCardAction={handleCardAction} onSuggestedAction={handleSuggestedAction} />
+            <ChatMessage key={m.id} message={m} onCardAction={handleCardAction} onSuggestedAction={handleSuggestedAction} onRetry={handleRetry} />
           ))}
         </div>
       </div>

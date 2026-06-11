@@ -248,6 +248,12 @@ export const strings = {
   "chat.message.copy": "Copy message",
   "chat.message.copied": "Copied",
   "chat.message.copyFailed": "Could not copy",
+  "chat.message.incomplete": "Response was cut off",
+  "chat.message.retry": "Try again",
+  "chat.retry.title": "Try again?",
+  "chat.retry.desc": "The connection dropped mid-reply, so the response may be incomplete. This request will be sent again.",
+  "chat.retry.confirm": "Send",
+  "chat.retry.cancel": "Cancel",
 
   // App Launcher (Dashboard)
   "launcher.title": "TYRO AI Platform",
