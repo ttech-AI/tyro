@@ -49,6 +49,30 @@ function rewriteIconScheme(node) {
   }
 }
 
+// "filtered" (typeahead) ChoiceSet, dokunmatik cihazda metin kutusu + klavye +
+// otomatik-tamamlama olarak açılıyor — kötü bir mobil deneyim. Statik seçeneği
+// olan (dinamik data-bound DEĞİL) filtered ChoiceSet'leri compact'e çevirerek
+// native <select> picker'ı yaptırıyoruz (Para Birimi/Lokasyon gibi: dokununca
+// temiz bir liste). Yalnızca dokunmatik cihazda; masaüstünde yazarak-arama kalsın.
+function compactifyChoiceSets(node) {
+  if (Array.isArray(node)) {
+    node.forEach(compactifyChoiceSets)
+    return
+  }
+  if (node && typeof node === "object") {
+    if (
+      node.type === "Input.ChoiceSet" &&
+      node.style === "filtered" &&
+      !node.isMultiSelect &&
+      Array.isArray(node.choices) &&
+      node.choices.length > 0
+    ) {
+      node.style = "compact"
+    }
+    for (const key of Object.keys(node)) compactifyChoiceSets(node[key])
+  }
+}
+
 // Build a HostConfig from the app's live CSS variables so the card inherits
 // the active palette + light/dark theme (oklch values are valid CSS colors
 // and the renderer applies them as inline styles).
@@ -133,6 +157,11 @@ export function AdaptiveCardView({ card, onAction }) {
       // "icon:" şemasını Fluent SVG URL'sine çevir (orijinali bozma → klonla).
       const cardJson = JSON.parse(JSON.stringify(card))
       rewriteIconScheme(cardJson)
+      // Dokunmatik cihazda filtered lookup'ları native <select>'e çevir
+      // (mobilde klavye+otomatik-tamamlama yerine Para Birimi gibi temiz picker).
+      if (typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches) {
+        compactifyChoiceSets(cardJson)
+      }
       adaptiveCard.parse(cardJson)
       const rendered = adaptiveCard.render()
       if (rendered) {
