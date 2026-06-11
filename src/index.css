@@ -990,6 +990,22 @@ html {
   padding: 0.4rem 0.65rem;
   font-size: 0.875rem;
 }
+/* Lookup/ChoiceSet select'inde native açılır-ok ikonu mobilde çoğu zaman
+   görünmüyor ("dropdown açılıyor ama ikon yok"). Native görünümü kapatıp
+   tutarlı bir chevron çiziyoruz — sağda boşluk bırakıp ikonu oraya koyuyoruz.
+   appearance:none yalnızca görseli kaldırır; dokununca native seçici yine açılır. */
+.ac-host select.ac-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 1.1rem;
+  padding-right: 2rem;
+}
+.dark .ac-host select.ac-input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
 /* Checkboxes + radios (expanded ChoiceSet, Toggle) */
 .ac-host input[type="checkbox"],
 .ac-host input[type="radio"] {
@@ -1095,6 +1111,20 @@ html {
   .ac-host .ac-columnSet > .ac-column {
     flex: 1 1 100% !important;
     max-width: 100% !important;
+  }
+  /* iOS, font-size'ı 16px'ten KÜÇÜK bir input'a odaklanınca sayfayı otomatik
+     zoom'lar (textfield'a tıklayınca yakınlaşma). Kart input'ları 14px olduğu
+     için tetikleniyordu — mobilde tam 16px'e sabitleyip zoom'u engelliyoruz.
+     viewport'a maximum-scale eklemiyoruz (erişilebilirlik için zoom açık kalsın). */
+  .ac-host input.ac-input,
+  .ac-host textarea.ac-input,
+  .ac-host select.ac-input,
+  .ac-host .ac-input.ac-textInput,
+  .ac-host .ac-input.ac-numberInput,
+  .ac-host .ac-input.ac-dateInput,
+  .ac-host .ac-input.ac-timeInput,
+  .ac-host .ac-multichoiceInput {
+    font-size: 16px;
   }
 }
 
