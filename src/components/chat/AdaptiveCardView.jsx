@@ -49,27 +49,52 @@ function rewriteIconScheme(node) {
   }
 }
 
+// SDK, isMultiSelect'i parseBool ile okur ("true"/"false" string'leri de kabul) —
+// aynı semantiği yansıt ki string "false" taşıyan kart çeviriyi engellemesin.
+function isTruthyFlag(v) {
+  return v === true || (typeof v === "string" && v.toLowerCase() === "true")
+}
+
 // "filtered" (typeahead) ChoiceSet, dokunmatik cihazda metin kutusu + klavye +
 // otomatik-tamamlama olarak açılıyor — kötü bir mobil deneyim. Statik seçeneği
-// olan (dinamik data-bound DEĞİL) filtered ChoiceSet'leri compact'e çevirerek
-// native <select> picker'ı yaptırıyoruz (Para Birimi/Lokasyon gibi: dokununca
-// temiz bir liste). Yalnızca dokunmatik cihazda; masaüstünde yazarak-arama kalsın.
-function compactifyChoiceSets(node) {
+// olan filtered ChoiceSet'leri compact'e çevirerek native <select> picker'ı
+// yaptırıyoruz (Para Birimi/Lokasyon gibi: dokununca temiz bir liste).
+// Yalnızca dokunmatik cihazda; masaüstünde yazarak-arama kalsın.
+// Üç incelik (SDK adaptivecards@3.x, doğrulanmış):
+// 1. style parse'ı case-INsensitive (ValueSetProperty.parse toLowerCase karşılaştırır)
+//    → "Filtered" yazımını da yakalamak için biz de lowercase kıyaslıyoruz.
+// 2. isDynamicTypeahead() internalRender'da style'dan ÖNCE kontrol edilir; kart
+//    "choices.data" (Data.Query) taşıyorsa style'ı değiştirmek TEK BAŞINA etkisiz —
+//    statik seçenek varsa choices.data'yı da silmek şart. Statik seçeneği OLMAYAN
+//    dinamik lookup'a dokunmuyoruz (select'i dolduracak liste yok).
+// 3. filtered'ın varsayılan değeri choice.title ile eşleşebilirken compact yalnızca
+//    choice.value eşleşmesini seçer → title-şekilli varsayılanı value'ya çevir.
+function compactifyChoiceSets(node, stats) {
   if (Array.isArray(node)) {
-    node.forEach(compactifyChoiceSets)
+    node.forEach((n) => compactifyChoiceSets(n, stats))
     return
   }
   if (node && typeof node === "object") {
+    const isFiltered = typeof node.style === "string" && node.style.toLowerCase() === "filtered"
+    const hasDataQuery = Boolean(node["choices.data"])
     if (
       node.type === "Input.ChoiceSet" &&
-      node.style === "filtered" &&
-      !node.isMultiSelect &&
+      !isTruthyFlag(node.isMultiSelect) &&
       Array.isArray(node.choices) &&
-      node.choices.length > 0
+      node.choices.length > 0 &&
+      (isFiltered || hasDataQuery)
     ) {
       node.style = "compact"
+      delete node["choices.data"]
+      if (node.value) {
+        const match =
+          node.choices.find((c) => c.value === node.value) ||
+          node.choices.find((c) => c.title === node.value)
+        if (match) node.value = match.value
+      }
+      stats.converted++
     }
-    for (const key of Object.keys(node)) compactifyChoiceSets(node[key])
+    for (const key of Object.keys(node)) compactifyChoiceSets(node[key], stats)
   }
 }
 
@@ -160,7 +185,11 @@ export function AdaptiveCardView({ card, onAction }) {
       // Dokunmatik cihazda filtered lookup'ları native <select>'e çevir
       // (mobilde klavye+otomatik-tamamlama yerine Para Birimi gibi temiz picker).
       if (typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches) {
-        compactifyChoiceSets(cardJson)
+        const stats = { converted: 0 }
+        compactifyChoiceSets(cardJson, stats)
+        // BİLEREK DEV-gate'siz: cihazda (Web Inspector / eruda) çevirinin gerçekten
+        // çalıştığını ve doğru bundle'ın yüklü olduğunu tek bakışta doğrulamak için.
+        if (stats.converted > 0) console.info("[AdaptiveCard] filtered→compact:", stats.converted)
       }
       adaptiveCard.parse(cardJson)
       const rendered = adaptiveCard.render()
