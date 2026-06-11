@@ -990,11 +990,14 @@ html {
   padding: 0.4rem 0.65rem;
   font-size: 0.875rem;
 }
-/* Lookup/ChoiceSet select'inde native açılır-ok ikonu mobilde çoğu zaman
-   görünmüyor ("dropdown açılıyor ama ikon yok"). Native görünümü kapatıp
-   tutarlı bir chevron çiziyoruz — sağda boşluk bırakıp ikonu oraya koyuyoruz.
-   appearance:none yalnızca görseli kaldırır; dokununca native seçici yine açılır. */
-.ac-host select.ac-input {
+/* Lookup/ChoiceSet açılır-ok ikonu. İki render biçimini de kapsar:
+   - compact ChoiceSet → <select> (native ok mobilde çoğu zaman görünmüyor)
+   - filtered ChoiceSet → <input type=text>+<datalist> (hiç ok'u yok)
+   Native görünümü kapatıp tutarlı bir chevron çiziyoruz; sağda boşluk
+   bırakıp ikonu oraya koyuyoruz. appearance:none yalnızca görseli kaldırır;
+   select dokununca native seçici, filtered'da datalist yine açılır. */
+.ac-host select.ac-input,
+.ac-host input.ac-choiceSetInput-filtered {
   appearance: none;
   -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -1003,8 +1006,14 @@ html {
   background-size: 1.1rem;
   padding-right: 2rem;
 }
-.dark .ac-host select.ac-input {
+.dark .ac-host select.ac-input,
+.dark .ac-host input.ac-choiceSetInput-filtered {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+/* filtered input'ta Chrome'un kendi datalist ok-göstergesi bizim chevron ile
+   üst üste binip "çift ok" yaratmasın diye gizle (chevron tek kalsın). */
+.ac-host input.ac-choiceSetInput-filtered::-webkit-calendar-picker-indicator {
+  display: none;
 }
 /* Checkboxes + radios (expanded ChoiceSet, Toggle) */
 .ac-host input[type="checkbox"],

@@ -147,6 +147,18 @@ export function AdaptiveCardView({ card, onAction }) {
             img.style.display = "none"
           })
         })
+        // DEV: her input alanının render biçimini dök. ChoiceSet "compact" →
+        // <select>, "filtered" → <input type=text>+datalist olarak gelir;
+        // chevron ikonunun neden bazı alanlarda eksik olduğunu buradan görürüz.
+        if (import.meta.env?.DEV) {
+          const fields = [...container.querySelectorAll("input, select, textarea")].map((el) => ({
+            label: el.closest(".ac-input-container")?.querySelector(".ac-input-label")?.textContent?.trim() || el.getAttribute("aria-label") || el.placeholder || "(etiketsiz)",
+            tag: el.tagName.toLowerCase(),
+            type: el.getAttribute("type") || "",
+            cls: el.className,
+          }))
+          console.debug("[AdaptiveCard] input alanları:", fields)
+        }
       }
     } catch (err) {
       console.error("AdaptiveCard render error:", err)
