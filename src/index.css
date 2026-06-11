@@ -990,41 +990,41 @@ html {
   padding: 0.4rem 0.65rem;
   font-size: 0.875rem;
 }
-/* Lookup/ChoiceSet açılır-ok ikonu. İki render biçimini de kapsar:
-   - compact ChoiceSet → <select> (native ok mobilde çoğu zaman görünmüyor)
-   - filtered ChoiceSet → <input type=text>+<datalist> (hiç ok'u yok)
-   Native görünümü kapatıp tutarlı bir chevron çiziyoruz; sağda boşluk
-   bırakıp ikonu oraya koyuyoruz. appearance:none yalnızca görseli kaldırır;
-   select dokununca native seçici, filtered'da datalist yine açılır. */
-/* <select>'te native oku KALDIR (kendi chevron'umuzu koyacağız). filtered
-   input'lara appearance:none UYGULAMA — datalist'in tıklanabilir göstergesini
-   bozmasın. */
+/* ── Lookup/ChoiceSet açılır-ok ikonu ──────────────────────────────
+   compact ChoiceSet → <select>: native oku kaldırıp kendi chevron'umuzu
+   koyuyoruz (select her platformda native açılır, appearance:none bunu bozmaz). */
 .ac-host select.ac-input {
   appearance: none;
   -webkit-appearance: none;
-}
-/* Üç dropdown biçimine de chevron çiz: compact <select> + statik filtered
-   (datalist) + dinamik typeahead (-textbox). */
-.ac-host select.ac-input,
-.ac-host input.ac-choiceSetInput-filtered,
-.ac-host input.ac-choiceSetInput-filtered-textbox {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.6rem center;
   background-size: 1.1rem;
   padding-right: 2rem;
 }
-.dark .ac-host select.ac-input,
-.dark .ac-host input.ac-choiceSetInput-filtered,
-.dark .ac-host input.ac-choiceSetInput-filtered-textbox {
+.dark .ac-host select.ac-input {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
-/* Datalist'in native ok-göstergesi dropdown'ı AÇAN tıklanabilir eleman.
-   display:none onu yok edip açılmayı bozuyordu → opacity:0 ile görünmez yapıp
-   (çift ok olmasın) tıklanabilirliğini koruyoruz; chevron'umuz üstte görünür. */
-.ac-host input.ac-choiceSetInput-filtered::-webkit-calendar-picker-indicator {
-  opacity: 0;
-  cursor: pointer;
+/* filtered/typeahead lookup (Kategori gibi): dropdown'ı AÇAN native ok-
+   göstergesine HİÇ DOKUNMUYORUZ — onu gizlemek (display:none / opacity:0)
+   iOS'ta tıklanabilirliği bozup açılmayı engelliyordu. Masaüstünde Chrome
+   kendi okunu zaten çiziyor; yalnızca DOKUNMATİK cihazlarda (iOS native ok'u
+   göstermiyor) kendi chevron'umuzu ARKA PLAN görseli olarak ekliyoruz —
+   arka plan görseli tıklamayı engellemez, dolayısıyla alana dokununca dropdown
+   yine açılır. Böylece çift ok da olmaz (desktop=native, touch=bizimki). */
+@media (hover: none) and (pointer: coarse) {
+  .ac-host input.ac-choiceSetInput-filtered,
+  .ac-host input.ac-choiceSetInput-filtered-textbox {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+    background-size: 1.1rem;
+    padding-right: 2rem;
+  }
+  .dark .ac-host input.ac-choiceSetInput-filtered,
+  .dark .ac-host input.ac-choiceSetInput-filtered-textbox {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
 }
 /* Checkboxes + radios (expanded ChoiceSet, Toggle) */
 .ac-host input[type="checkbox"],
