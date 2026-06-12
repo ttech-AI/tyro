@@ -306,6 +306,8 @@ export function ChatScreen({ onReset, initialAgent }) {
             copilotClientRef.current = { client: copilotClient, agentId: agent }
             break
           }
+          // Geçici "Processing…"/informative güncellemesini selamlamaya basma.
+          if (chunk.transient) continue
           greetingText = chunk.text
           greetingAttachments = chunk.attachments || []
           greetingSuggested = chunk.suggestedActions || []
@@ -360,9 +362,16 @@ export function ChatScreen({ onReset, initialAgent }) {
     // Tamamlanmış "message" aktivitesi gördük mü? Görmeden akış biterse
     // (iOS PWA'da bağlantı kopması) yanıt yarıda kalmış demektir.
     let sawFinal = false
+    // Geçici "Processing…"/informative güncellemesi gördük mü? Bunları balona
+    // basmıyoruz ama akış SADECE bunları görüp final gelmeden biterse, balonu
+    // "yarıda kesildi" sayıp Tekrar dene sunabilmek için izliyoruz.
+    let sawTransient = false
     for await (const chunk of generator) {
       if (abortGenRef.current !== gen) return { aborted: true }
       if (chunk.done) break
+      // Geçici durum güncellemesi: içeriği balona UYGULAMA — "yazıyor"
+      // göstergesi gerçek yanıt gelene kadar kalsın (Teams davranışı).
+      if (chunk.transient) { sawTransient = true; continue }
       if (chunk.final) sawFinal = true
       fullText = chunk.text
       fullAttachments = chunk.attachments || []
@@ -370,11 +379,13 @@ export function ChatScreen({ onReset, initialAgent }) {
       setMessages((m) => m.map((msg) => msg.id === replyId ? { ...msg, content: fullText, attachments: fullAttachments, suggestedActions: fullSuggested } : msg))
     }
     const hasContent = Boolean(fullText) || fullAttachments.length > 0 || fullSuggested.length > 0
-    if (!hasContent) {
+    // İçerik geldi (ya da yalnızca geçici güncelleme görüldü) ama final mesaj
+    // gelmediyse: akış erken kesilmiş.
+    const incomplete = (hasContent || sawTransient) && !sawFinal
+    // Boş balonu yalnızca eksik DE değilse kaldır (eksikse Tekrar dene için kalsın).
+    if (!hasContent && !incomplete) {
       setMessages((m) => m.filter((msg) => msg.id !== replyId))
     }
-    // İçerik geldi ama final mesaj hiç gelmediyse: akış erken kesilmiş.
-    const incomplete = hasContent && !sawFinal
     return { fullText, fullAttachments, fullSuggested, incomplete, replyId }
   }
 
@@ -560,7 +571,7 @@ export function ChatScreen({ onReset, initialAgent }) {
   // greeting (metin/kart/suggested) GERÇEKTEN gelene kadar orb ekranında
   // kalıyoruz — orb'un "thinking" animasyonu zaten yükleniyor göstergesi.
   const hasRenderableContent = (m) =>
-    Boolean(m.content) || m.attachments?.length > 0 || m.suggestedActions?.length > 0
+    Boolean(m.content) || m.attachments?.length > 0 || m.suggestedActions?.length > 0 || m.incomplete
   const isEmpty = !messages.some(hasRenderableContent)
 
   if (isEmpty) {

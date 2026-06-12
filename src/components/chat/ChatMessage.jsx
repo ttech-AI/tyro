@@ -303,7 +303,7 @@ function ChatMessageInner({ message, onCardAction, onSuggestedAction, onRetry })
               <FileAttachment key={i} att={att} />
             ) : null,
           )}
-          {!message.content && !message.attachments?.length && !message.suggestedActions?.length && (
+          {!message.content && !message.attachments?.length && !message.suggestedActions?.length && !message.incomplete && (
             <div className="rounded-2xl rounded-tl-md border border-border bg-card px-4 py-2.5">
               <TypingIndicator />
             </div>

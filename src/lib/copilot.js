@@ -23,6 +23,17 @@ export function createCopilotClient(schemaName) {
   return { settings }
 }
 
+// Bot Framework streaming protokolünde akış tipi ya `streaminfo` entity'sinde
+// ya da (eski stil) channelData'da taşınır: "streaming" (token delta'ları),
+// "informative" (ara DURUM güncellemesi — "Processing…", ilerleme kartı) ve
+// "final" (nihai mesaj). SDK yalnızca "streaming"i özel işliyor; diğerlerini
+// burada okuyoruz. (Doğrulandı: agents-copilotstudio-client entity+channelData'yı
+// olduğu gibi geçirir; yalnızca streaming-text birikiminde activity.text'i yazar.)
+function streamTypeOf(activity) {
+  const ent = activity?.entities?.find((e) => e?.type === "streaminfo")
+  return ent?.streamType ?? activity?.channelData?.streamType ?? null
+}
+
 // Maps a Bot Framework activity to our chunk shape. Captures text, card
 // attachments AND suggestedActions (the quick-reply buttons menu-driven
 // bots use, e.g. İşlemler / D365 / TİBOT) which live outside attachments.
@@ -38,15 +49,26 @@ function activityToChunk(activity) {
     )
     if (files.length) console.debug("[copilot] non-card attachments:", files)
   }
+  const streamType = streamTypeOf(activity)
+  // GEÇİCİ (transient) durum güncellemesi: agent flow çalışırken gelen
+  // "informative" akış güncellemeleri ve streaming-DIŞI typing aktiviteleri
+  // (Copilot'un "Processing…" / ilerleme kartı gönderdiği yer). Bunları nihai
+  // içerik sanıp balona basMIYORUZ — Teams gibi yalnızca "yazıyor" göstergesini
+  // koruyup gerçek yanıtı bekliyoruz. Yalnızca `message` aktiviteleri ve
+  // "streaming" token birikimi görünür içerik üretir.
+  const transient =
+    streamType === "informative" ||
+    (activity?.type === "typing" && streamType !== "streaming")
   return {
     text: activity.text || "",
     attachments: activity.attachments || [],
     suggestedActions: suggested,
+    transient,
     // Akış protokolü: bot önce ara "typing" delta'ları, en sonda TEK bir
     // tamamlanmış "message" aktivitesi gönderir. `final` yalnızca bu son
-    // mesajda true olur — iOS PWA'da bağlantı final gelmeden koparsa
-    // ChatScreen yanıtın yarıda kesildiğini buradan anlar.
-    final: activity?.type === "message",
+    // (geçici-olmayan) mesajda true olur — iOS PWA'da bağlantı final gelmeden
+    // koparsa ChatScreen yanıtın yarıda kesildiğini buradan anlar.
+    final: activity?.type === "message" && !transient,
     done: false,
   }
 }
