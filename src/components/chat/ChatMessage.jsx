@@ -74,14 +74,14 @@ function FileAttachment({ att }) {
 // "Yazıyor" göstergesi — premium: brand-gradient shimmer ile parlayan, yumuşak
 // crossfade ile ilerleyen durum kelimesi + ince nokta dalgası. Kelimeler doğal
 // bir ilerleme verir (Düşünüyor → Yanıt hazırlanıyor → Neredeyse hazır) ve son
-// adımda bekler (yanıt gecikse de "başa sarmaz").
+// kelimede DURMAZ — başa sarıp sürekli döngüde döner; böylece yanıt gecikse
+// bile gösterge "canlı" kalır, son adımda donup kalmaz.
 function TypingIndicator() {
   const { t } = useLocale()
   const phrases = [t("chat.typing.0"), t("chat.typing.1"), t("chat.typing.2")]
   const [step, setStep] = useState(0)
   useEffect(() => {
-    if (step >= phrases.length - 1) return
-    const id = setTimeout(() => setStep((s) => s + 1), 1600)
+    const id = setTimeout(() => setStep((s) => (s + 1) % phrases.length), 1600)
     return () => clearTimeout(id)
   }, [step, phrases.length])
 
