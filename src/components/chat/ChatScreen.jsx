@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Refresh01Icon, ArrowDown01Icon } from "@hugeicons/core-free-icons"
@@ -143,16 +143,34 @@ export function ChatScreen({ onReset, initialAgent }) {
   // İçerik yüksekliği değiştikçe (Adaptive Card'lar DOM'a ASENKRON eklenir,
   // "yazıyor" → metin geçişi yüksekliği büyütür) dibe sabit kal. Tek seferlik
   // messages-effect scroll'u kart render'ından önce çalıştığı için yetmiyordu.
+  //
+  // KRİTİK: content node'u sabit `[]` bağımlılıklı bir effect ile DEĞİL,
+  // CALLBACK ref ile gözlüyoruz. Boş-durum (orb karşılama) ekranında scroller
+  // ve content DOM'da YOK; greeting + menü kartı gelip isEmpty false olunca
+  // chat layout MOUNT olur. `[]` effect yalnızca ilk mount'ta (o an refler
+  // null iken) çalıştığı için ResizeObserver hiç kurulmuyordu → ilk konuşmada
+  // asenkron büyüyen Adaptive Card'lar dibe çekmiyordu (özellikle mobil/PWA'da
+  // kart viewport'tan uzun olunca dibi composer'ın altında kalıyordu). Callback
+  // ref node tam mount olunca tetiklenir ve her reset→boş→dolu döngüsünde
+  // observer'ı yeniden bağlar.
   const contentRef = useRef(null)
-  useEffect(() => {
-    const content = contentRef.current
-    const scroller = scrollRef.current
-    if (!content || !scroller || typeof ResizeObserver === "undefined") return
-    const ro = new ResizeObserver(() => {
-      if (isNearBottomRef.current) scroller.scrollTop = scroller.scrollHeight
-    })
-    ro.observe(content)
-    return () => ro.disconnect()
+  const resizeObsRef = useRef(null)
+  const attachContentRef = useCallback((node) => {
+    contentRef.current = node
+    if (resizeObsRef.current) {
+      resizeObsRef.current.disconnect()
+      resizeObsRef.current = null
+    }
+    if (node && typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(() => {
+        // scroller'ı tembel oku: callback ref child (content) parent
+        // (scroller) ref'inden ÖNCE bağlanabilir; RO ateşlendiğinde ikisi de hazır.
+        const scroller = scrollRef.current
+        if (scroller && isNearBottomRef.current) scroller.scrollTop = scroller.scrollHeight
+      })
+      ro.observe(node)
+      resizeObsRef.current = ro
+    }
   }, [])
 
   // Auto-scroll trap: snap to bottom if the user was already near it; else
@@ -729,7 +747,7 @@ export function ChatScreen({ onReset, initialAgent }) {
         }}
         className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain px-1 py-3"
       >
-        <div ref={contentRef} className="space-y-4">
+        <div ref={attachContentRef} className="space-y-4">
           {messages.map((m) => (
             <ChatMessage key={m.id} message={m} onCardAction={handleCardAction} onSuggestedAction={handleSuggestedAction} onRetry={handleRetry} />
           ))}
