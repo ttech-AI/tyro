@@ -89,8 +89,9 @@ export async function* startConversation(schemaName) {
 // Inline attachment limiti. Dosyalar activity'ye base64 data-URI olarak GÖMÜLÜR
 // (ayrı bir DirectLine upload endpoint'i yok); base64 ham boyutu ~%33 şişirir ve
 // Copilot Studio'nun inline payload'ı ~1 MB civarında sorun çıkarmaya başlar.
-// Temkinli bir per-file tavan; gerekirse tek yerden artırılır.
-export const MAX_ATTACHMENT_BYTES = 1024 * 1024 // 1 MB
+// 3 MB'lık bir dosya base64'te ~4 MB'a şişer — kanal bunu reddedebilir; o durumda
+// gönderim "bağlantı hatası" ile sonuçlanır. Tek yerden ayarlanır.
+export const MAX_ATTACHMENT_BYTES = 3 * 1024 * 1024 // 3 MB
 
 // Bir File'ı Copilot/Bot Framework attachment'ına çevirir:
 // { contentType, name, contentUrl: "data:<mime>;base64,..." }. Bot tarafında
