@@ -88,25 +88,84 @@ export async function* startConversation(schemaName) {
 
 // Inline attachment limiti. Dosyalar activity'ye base64 data-URI olarak GÖMÜLÜR
 // (ayrı bir DirectLine upload endpoint'i yok); base64 ham boyutu ~%33 şişirir ve
-// Copilot Studio'nun inline payload'ı ~1 MB civarında sorun çıkarmaya başlar.
-// 6 MB'lık bir dosya base64'te ~8 MB'a şişer — kanal bunu reddedebilir; o durumda
-// gönderim "bağlantı hatası" ile sonuçlanır. Tek yerden ayarlanır.
-export const MAX_ATTACHMENT_BYTES = 6 * 1024 * 1024 // 6 MB
+// Copilot Studio'nun direct-connection inline payload'ı ~1 MB civarında sorun
+// çıkarmaya başlar. GÖRSELLER gönderimden önce otomatik küçültülüp sıkıştırılır
+// (bkz. compressImageFile) — o yüzden büyük foto/ekran görüntüleri de sorunsuz
+// geçer. Bu tavan yalnızca GÖRSEL-OLMAYAN dosyalar (PDF/Office vb.) için geçerli;
+// onlar sıkıştırılamadığı için inline limite takılabilir, o durumda gönderim
+// "bağlantı hatası" ile sonuçlanır. Tek yerden ayarlanır.
+export const MAX_ATTACHMENT_BYTES = 6 * 1024 * 1024 // 6 MB (görsel-olmayan dosyalar)
+
+// Görseller için pick-time ham boyut tavanı: yüksek tutulur çünkü gönderimden
+// önce sıkıştırılacak. Tek amacı canvas'ı kilitleyebilecek absürt girdileri
+// (ör. 50 MP RAW) elemek; tipik telefon fotoğrafları 2-8 MB.
+export const MAX_IMAGE_BYTES = 25 * 1024 * 1024 // 25 MB ham
+
+// Yalnızca raster görselleri sıkıştırırız — SVG vektördür, GIF animasyonu kaybeder.
+export function isCompressibleImage(file) {
+  return /^image\/(jpe?g|png|webp|bmp)$/i.test(file?.type || "")
+}
+
+// Sıkıştırma hedefi: ham ~900 KB ⇒ base64'te ~1.2 MB — direct-connection inline
+// tavanının güvenle altında. En uzun kenar 1600px'e indirilir; PNG (şeffaflık)
+// önce PNG denenir, hâlâ büyükse JPEG'e düşülür; JPEG kalitesi hedefe inene
+// kadar kademeli azaltılır.
+const IMAGE_TARGET_BYTES = 900 * 1024
+const IMAGE_MAX_DIM = 1600
+
+async function compressImageFile(file) {
+  if (!isCompressibleImage(file)) return file
+  let bitmap
+  try {
+    // imageOrientation:"from-image" → EXIF rotasyonunu uygular (telefon fotoğrafı).
+    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" })
+  } catch {
+    return file // decode edilemezse orijinali bırak (boyut kontrolünden geçti zaten)
+  }
+  const scale = Math.min(1, IMAGE_MAX_DIM / Math.max(bitmap.width, bitmap.height))
+  const w = Math.max(1, Math.round(bitmap.width * scale))
+  const h = Math.max(1, Math.round(bitmap.height * scale))
+  const canvas = document.createElement("canvas")
+  canvas.width = w
+  canvas.height = h
+  canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h)
+  bitmap.close?.()
+
+  const toBlob = (type, q) => new Promise((res) => canvas.toBlob(res, type, q))
+  let blob = null
+  if (/png/i.test(file.type)) {
+    blob = await toBlob("image/png")
+    if (blob && blob.size > IMAGE_TARGET_BYTES) blob = null // şeffaflık yoksa JPEG çok daha küçük
+  }
+  if (!blob) {
+    for (const q of [0.82, 0.7, 0.6, 0.5]) {
+      blob = await toBlob("image/jpeg", q)
+      if (blob && blob.size <= IMAGE_TARGET_BYTES) break
+    }
+  }
+  if (!blob || blob.size >= file.size) return file // sıkıştırma fayda etmediyse orijinal
+
+  const ext = blob.type === "image/png" ? "png" : "jpg"
+  const baseName = file.name.replace(/\.[^.]+$/, "")
+  return new File([blob], `${baseName}.${ext}`, { type: blob.type, lastModified: file.lastModified })
+}
 
 // Bir File'ı Copilot/Bot Framework attachment'ına çevirir:
 // { contentType, name, contentUrl: "data:<mime>;base64,..." }. Bot tarafında
 // System.Activity.Attachments üzerinden .Name / .Content olarak okunur.
-function fileToAttachment(file) {
+// Görseller önce compressImageFile'dan geçer.
+async function fileToAttachment(file) {
+  const out = await compressImageFile(file)
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onerror = () => reject(reader.error ?? new Error("read failed"))
     reader.onload = () =>
       resolve({
-        contentType: file.type || "application/octet-stream",
-        name: file.name,
+        contentType: out.type || "application/octet-stream",
+        name: out.name,
         contentUrl: reader.result, // data:<mime>;base64,<...>
       })
-    reader.readAsDataURL(file)
+    reader.readAsDataURL(out)
   })
 }
 

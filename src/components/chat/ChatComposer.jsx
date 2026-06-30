@@ -22,7 +22,7 @@ import { useLocale } from "@/hooks/useLocale"
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
-import { MAX_ATTACHMENT_BYTES } from "@/lib/copilot"
+import { MAX_ATTACHMENT_BYTES, MAX_IMAGE_BYTES, isCompressibleImage } from "@/lib/copilot"
 import { bcp47 } from "@/lib/intl-cache"
 
 function formatFileSize(bytes) {
@@ -171,14 +171,17 @@ export function ChatComposer({
   function handleFiles(e) {
     const picked = Array.from(e.target.files || [])
     if (picked.length === 0) return
-    // Dosyalar activity'ye inline base64 olarak gömüldüğü için per-file boyut
-    // tavanı var (bkz. MAX_ATTACHMENT_BYTES). Aşan dosyayı ele ve bildir.
+    // Dosyalar activity'ye inline base64 olarak gömülür. Görseller gönderimden
+    // önce otomatik küçültülür (bkz. compressImageFile) — o yüzden ham tavanları
+    // yüksek (MAX_IMAGE_BYTES). Görsel-olmayan dosyalar sıkıştırılamaz, daha düşük
+    // tavana (MAX_ATTACHMENT_BYTES) takılır. Aşan dosyayı ele ve bildir.
     const accepted = picked.filter((file) => {
-      if (file.size > MAX_ATTACHMENT_BYTES) {
+      const cap = isCompressibleImage(file) ? MAX_IMAGE_BYTES : MAX_ATTACHMENT_BYTES
+      if (file.size > cap) {
         toast.error(
           t("chat.attach.tooLarge")
             .replace("{name}", file.name)
-            .replace("{size}", formatFileSize(MAX_ATTACHMENT_BYTES)),
+            .replace("{size}", formatFileSize(cap)),
         )
         return false
       }
